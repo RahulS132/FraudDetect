@@ -5,3 +5,6 @@
 /QUICKSTART.md
 /README.md
 /.env
+/creditcard.csv
+/.venv/
+__pycache__/
