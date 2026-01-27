@@ -1,0 +1,7 @@
+Admin analytics
+Email: admin@test.com
+Password: admin123
+
+Test user
+Email: test@example.com
+Password: test123

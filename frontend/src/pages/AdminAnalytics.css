@@ -1,0 +1,153 @@
+.stat-card.stat-info .stat-icon {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.admin-section {
+  margin-bottom: 2rem;
+}
+
+.section-card {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1.5rem;
+}
+
+.distribution-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
+}
+
+.distribution-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.distribution-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.distribution-value {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.distribution-value.approved {
+  color: #10b981;
+}
+
+.distribution-value.rejected {
+  color: #f59e0b;
+}
+
+.chart-container-large {
+  height: 400px;
+  position: relative;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table thead {
+  background: #f9fafb;
+}
+
+.data-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.data-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: #4b5563;
+}
+
+.data-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.username-cell {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.email-cell {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.fraud-count {
+  font-weight: 600;
+  color: #dc2626;
+}
+
+.rate-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.rate-badge.low {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.rate-badge.medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.rate-badge.high {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+@media (max-width: 768px) {
+  .distribution-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-container-large {
+    height: 300px;
+  }
+
+  .data-table {
+    font-size: 0.875rem;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.75rem 0.5rem;
+  }
+}

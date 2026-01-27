@@ -1,0 +1,106 @@
+.sidebar {
+  width: 280px;
+  height: 100vh;
+  background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 0;
+  position: fixed;
+  left: 0;
+  top: 0;
+  box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 2rem;
+  margin-bottom: 2rem;
+}
+
+.sidebar-logo {
+  color: #60a5fa;
+}
+
+.sidebar-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 1rem 2rem 1rem;
+  border-radius: 8px;
+}
+
+.sidebar-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sidebar-username {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.sidebar-role {
+  font-size: 0.75rem;
+  color: #bfdbfe;
+  text-transform: capitalize;
+}
+
+.sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 1rem;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  border-radius: 8px;
+  transition: all 0.2s;
+  color: #e0e7ff;
+  font-weight: 500;
+}
+
+.sidebar-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.sidebar-link.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-logout {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 2rem;
+  margin: 0 1rem;
+  background: rgba(239, 68, 68, 0.2);
+  color: #fecaca;
+  border-radius: 8px;
+  transition: all 0.2s;
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+.sidebar-logout:hover {
+  background: rgba(239, 68, 68, 0.3);
+  color: white;
+}
