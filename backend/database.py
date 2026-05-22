@@ -5,6 +5,7 @@ from datetime import datetime
 import certifi
 
 settings = get_settings()
+client = None
 
 # MongoDB client with certifi for SSL
 try:
@@ -23,15 +24,24 @@ except ConnectionFailure as e:
 except Exception as e:
     print(f"✗ Unexpected error: {e}")
 
-db = client[settings.DATABASE_NAME]
-
-# Collections
-users_collection = db["users"]
-transactions_collection = db["transactions"]
-detection_results_collection = db["detection_results"]
+if client is not None:
+    db = client[settings.DATABASE_NAME]
+    # Collections
+    users_collection = db["users"]
+    transactions_collection = db["transactions"]
+    detection_results_collection = db["detection_results"]
+else:
+    db = None
+    users_collection = None
+    transactions_collection = None
+    detection_results_collection = None
 
 def init_db():
     """Initialize database with indexes"""
+    if db is None:
+        print("Index creation skipped: database connection is not available")
+        return
+
     try:
         # Create indexes
         users_collection.create_index([("email", ASCENDING)], unique=True)
@@ -47,4 +57,6 @@ def init_db():
         print(f"Index creation warning: {e}")
 
 def get_db():
+    if db is None:
+        raise RuntimeError("Database is not initialized. Check MONGODB_URL and MongoDB Atlas access settings.")
     return db

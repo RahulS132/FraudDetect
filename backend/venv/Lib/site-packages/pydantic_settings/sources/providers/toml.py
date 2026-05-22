@@ -50,14 +50,15 @@ class TomlConfigSettingsSource(InitSettingsSource, ConfigFileSourceMixin):
         self,
         settings_cls: type[BaseSettings],
         toml_file: PathType | None = DEFAULT_PATH,
+        deep_merge: bool = False,
     ):
         self.toml_file_path = toml_file if toml_file != DEFAULT_PATH else settings_cls.model_config.get('toml_file')
-        self.toml_data = self._read_files(self.toml_file_path)
+        self.toml_data = self._read_files(self.toml_file_path, deep_merge=deep_merge)
         super().__init__(settings_cls, self.toml_data)
 
     def _read_file(self, file_path: Path) -> dict[str, Any]:
         import_toml()
-        with open(file_path, mode='rb') as toml_file:
+        with file_path.open(mode='rb') as toml_file:
             if sys.version_info < (3, 11):
                 return tomli.load(toml_file)
             return tomllib.load(toml_file)

@@ -1,9 +1,18 @@
-/DATABASE_SCHEMA.md
-/DEPLOYMENT.md
-/no
 /PROJECT_SUMMARY.md
-/QUICKSTART.md
-/.env
-/creditcard.csv
-/.venv/
+
+
+# # Environment files
+# .env
+# **/.env
+# .env.*
+
+# Virtual env
+.venv/
+**/.venv/
+**/venv/
+
+# Python
 __pycache__/
+
+# Data files
+*.csv

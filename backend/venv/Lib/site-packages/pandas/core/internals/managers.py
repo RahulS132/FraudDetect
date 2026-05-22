@@ -845,16 +845,24 @@ class BaseBlockManager(PandasObject):
                 )
             )
         else:
-            new_blocks = [
-                blk.take_nd(
-                    indexer,
-                    axis=1,
-                    fill_value=(
-                        fill_value if fill_value is not None else blk.fill_value
-                    ),
-                )
-                for blk in self.blocks
-            ]
+            new_blocks = []
+            for blk in self.blocks:
+                if blk.dtype == np.void:
+                    # GH#58316: np.void placeholders cast to b'' when
+                    # reindexed; preserve np.void so _setitem_single_column
+                    # can later infer the correct dtype
+                    vals = np.empty((blk.values.shape[0], len(indexer)), dtype=np.void)
+                    new_blocks.append(NumpyBlock(vals, blk.mgr_locs, ndim=2))
+                else:
+                    new_blocks.append(
+                        blk.take_nd(
+                            indexer,
+                            axis=1,
+                            fill_value=(
+                                fill_value if fill_value is not None else blk.fill_value
+                            ),
+                        )
+                    )
 
         new_axes = list(self.axes)
         new_axes[axis] = new_axis
@@ -956,11 +964,20 @@ class BaseBlockManager(PandasObject):
             if blkno == -1:
                 # If we've got here, fill_value was not lib.no_default
 
-                yield self._make_na_block(
-                    placement=mgr_locs,
-                    fill_value=fill_value,
-                    use_na_proxy=use_na_proxy,
-                )
+                dtype, _ = infer_dtype_from_scalar(fill_value)
+                if is_1d_only_ea_dtype(dtype) and len(mgr_locs) > 1:
+                    # Handle 1D-only extension dtypes by creating separate blocks
+                    # (GH#63993)
+                    placements = [BlockPlacement(col_idx) for col_idx in mgr_locs]
+                else:
+                    placements = [mgr_locs]
+
+                for placement in placements:
+                    yield self._make_na_block(
+                        placement=placement,
+                        fill_value=fill_value,
+                        use_na_proxy=use_na_proxy,
+                    )
             else:
                 blk = self.blocks[blkno]
 
