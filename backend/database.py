@@ -43,15 +43,32 @@ def init_db():
         return
 
     try:
-        # Create indexes
+        # ── users ──────────────────────────────────────────────────────────
         users_collection.create_index([("email", ASCENDING)], unique=True)
         users_collection.create_index([("username", ASCENDING)], unique=True)
+
+        # ── transactions ───────────────────────────────────────────────────
         transactions_collection.create_index([("user_id", ASCENDING)])
         transactions_collection.create_index([("created_at", DESCENDING)])
+
+        # ── detection_results ──────────────────────────────────────────────
+        # Single-field indexes (original)
         detection_results_collection.create_index([("user_id", ASCENDING)])
         detection_results_collection.create_index([("transaction_id", ASCENDING)])
         detection_results_collection.create_index([("created_at", DESCENDING)])
-        
+
+        # Compound indexes for dashboard chart queries
+        # Used by: anomaly-score-distribution, transactions-over-time (user scoped)
+        detection_results_collection.create_index(
+            [("user_id", ASCENDING), ("created_at", DESCENDING)]
+        )
+        # Used by: v-feature-boxplots, amount-distribution (filter by is_fraud globally)
+        detection_results_collection.create_index([("is_fraud", ASCENDING)])
+        # Used by: user amount-vs-anomaly (filter user then sample)
+        detection_results_collection.create_index(
+            [("user_id", ASCENDING), ("is_fraud", ASCENDING)]
+        )
+
         print("✓ Database indexes created")
     except Exception as e:
         print(f"Index creation warning: {e}")

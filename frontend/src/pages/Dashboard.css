@@ -191,3 +191,26 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── New chart additions ─────────────────────────────────────────────────── */
+
+.chart-subtitle {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-top: -1rem;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.chart-section {
+  margin-bottom: 1.5rem;
+}
+
+.chart-card-full {
+  width: 100%;
+}
+
+.chart-container-tall {
+  height: 340px;
+  position: relative;
+}

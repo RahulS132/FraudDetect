@@ -1,26 +1,60 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Doughnut, Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
+import { Doughnut, Bar, Scatter, Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  PointElement,
+  LineElement,
+  Filler,
+} from 'chart.js';
 import { TrendingUp, TrendingDown, Activity, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import './Dashboard.css';
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  PointElement,
+  LineElement,
+  Filler
+);
 
 export const Dashboard = () => {
   const [stats, setStats] = useState(null);
+  const [anomalyDist, setAnomalyDist] = useState(null);
+  const [amountVsAnomaly, setAmountVsAnomaly] = useState(null);
+  const [txOverTime, setTxOverTime] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchDashboardStats();
+    fetchAll();
   }, []);
 
-  const fetchDashboardStats = async () => {
+  const fetchAll = async () => {
     try {
-      const response = await axios.get('/api/transactions/dashboard');
-      setStats(response.data);
+      const [statsRes, distRes, scatterRes, timeRes] = await Promise.all([
+        axios.get('/api/transactions/dashboard'),
+        axios.get('/api/transactions/anomaly-score-distribution'),
+        axios.get('/api/transactions/amount-vs-anomaly'),
+        axios.get('/api/transactions/transactions-over-time'),
+      ]);
+      setStats(statsRes.data);
+      setAnomalyDist(distRes.data);
+      setAmountVsAnomaly(scatterRes.data);
+      setTxOverTime(timeRes.data);
       setError('');
     } catch (err) {
       setError('Failed to load dashboard data');
@@ -52,6 +86,8 @@ export const Dashboard = () => {
     );
   }
 
+  // ── Existing doughnut data ────────────────────────────────────────────────
+
   const fraudVsLegitData = {
     labels: ['Fraud Detected', 'Legitimate'],
     datasets: [
@@ -78,18 +114,149 @@ export const Dashboard = () => {
     ],
   };
 
-  const chartOptions = {
+  const doughnutOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'bottom',
-        labels: {
-          padding: 15,
-          font: {
-            size: 12,
-          },
+        labels: { padding: 15, font: { size: 12 } },
+      },
+    },
+  };
+
+  // ── Anomaly Score Distribution (stacked bar histogram) ────────────────────
+
+  const hasAnomalyDist = anomalyDist?.bins?.length > 0;
+
+  const anomalyHistData = {
+    labels: anomalyDist?.bins || [],
+    datasets: [
+      {
+        label: 'Fraud',
+        data: anomalyDist?.fraud_counts || [],
+        backgroundColor: 'rgba(239, 68, 68, 0.75)',
+        borderColor: '#ef4444',
+        borderWidth: 1,
+        stack: 'stack',
+      },
+      {
+        label: 'Legitimate',
+        data: anomalyDist?.legit_counts || [],
+        backgroundColor: 'rgba(16, 185, 129, 0.65)',
+        borderColor: '#10b981',
+        borderWidth: 1,
+        stack: 'stack',
+      },
+    ],
+  };
+
+  const anomalyHistOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top' },
+      title: { display: false },
+      tooltip: {
+        callbacks: {
+          title: (items) => `Score bin: ${items[0].label}`,
         },
+      },
+    },
+    scales: {
+      x: {
+        stacked: true,
+        title: { display: true, text: 'Anomaly Score (lower = more anomalous)' },
+        ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 10 },
+      },
+      y: {
+        stacked: true,
+        title: { display: true, text: 'Transaction Count' },
+        beginAtZero: true,
+      },
+    },
+  };
+
+  // ── Amount vs Anomaly Score (scatter) ─────────────────────────────────────
+
+  const hasScatter =
+    amountVsAnomaly &&
+    (amountVsAnomaly.fraud_points?.length > 0 || amountVsAnomaly.legit_points?.length > 0);
+
+  const scatterData = {
+    datasets: [
+      {
+        label: 'Fraud',
+        data: amountVsAnomaly?.fraud_points || [],
+        backgroundColor: 'rgba(239, 68, 68, 0.55)',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      },
+      {
+        label: 'Legitimate',
+        data: amountVsAnomaly?.legit_points || [],
+        backgroundColor: 'rgba(16, 185, 129, 0.35)',
+        pointRadius: 3,
+        pointHoverRadius: 5,
+      },
+    ],
+  };
+
+  const scatterOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top' },
+      tooltip: {
+        callbacks: {
+          label: (ctx) =>
+            `${ctx.dataset.label}: $${ctx.parsed.x.toFixed(2)}, score ${ctx.parsed.y.toFixed(4)}`,
+        },
+      },
+    },
+    scales: {
+      x: { title: { display: true, text: 'Transaction Amount ($)' } },
+      y: { title: { display: true, text: 'Anomaly Score' } },
+    },
+  };
+
+  // ── Transactions Over Time (line) ─────────────────────────────────────────
+
+  const hasTime = txOverTime?.dates?.length > 0;
+
+  const timeData = {
+    labels: txOverTime?.dates || [],
+    datasets: [
+      {
+        label: 'Total Transactions',
+        data: txOverTime?.total_counts || [],
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59, 130, 246, 0.12)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+      },
+      {
+        label: 'Fraud',
+        data: txOverTime?.fraud_counts || [],
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+      },
+    ],
+  };
+
+  const timeOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { position: 'top' } },
+    scales: {
+      x: { title: { display: true, text: 'Upload Date' } },
+      y: {
+        title: { display: true, text: 'Count' },
+        beginAtZero: true,
       },
     },
   };
@@ -103,11 +270,10 @@ export const Dashboard = () => {
           <p className="page-subtitle">Overview of your fraud detection statistics</p>
         </div>
 
+        {/* ── Stat Cards ─────────────────────────────────────────────────── */}
         <div className="stats-grid">
           <div className="stat-card stat-primary">
-            <div className="stat-icon">
-              <Activity size={24} />
-            </div>
+            <div className="stat-icon"><Activity size={24} /></div>
             <div className="stat-content">
               <div className="stat-label">Total Transactions</div>
               <div className="stat-value">{stats?.total_transactions || 0}</div>
@@ -115,9 +281,7 @@ export const Dashboard = () => {
           </div>
 
           <div className="stat-card stat-success">
-            <div className="stat-icon">
-              <CheckCircle size={24} />
-            </div>
+            <div className="stat-icon"><CheckCircle size={24} /></div>
             <div className="stat-content">
               <div className="stat-label">Approved</div>
               <div className="stat-value">{stats?.approved_transactions || 0}</div>
@@ -128,9 +292,7 @@ export const Dashboard = () => {
           </div>
 
           <div className="stat-card stat-warning">
-            <div className="stat-icon">
-              <XCircle size={24} />
-            </div>
+            <div className="stat-icon"><XCircle size={24} /></div>
             <div className="stat-content">
               <div className="stat-label">Rejected</div>
               <div className="stat-value">{stats?.rejected_transactions || 0}</div>
@@ -138,9 +300,7 @@ export const Dashboard = () => {
           </div>
 
           <div className="stat-card stat-danger">
-            <div className="stat-icon">
-              <AlertTriangle size={24} />
-            </div>
+            <div className="stat-icon"><AlertTriangle size={24} /></div>
             <div className="stat-content">
               <div className="stat-label">Fraud Detected</div>
               <div className="stat-value">{stats?.fraud_detected || 0}</div>
@@ -152,21 +312,66 @@ export const Dashboard = () => {
         </div>
 
         {stats?.total_transactions > 0 ? (
-          <div className="charts-grid">
-            <div className="chart-card">
-              <h3 className="chart-title">Fraud vs Legitimate</h3>
-              <div className="chart-container">
-                <Doughnut data={fraudVsLegitData} options={chartOptions} />
+          <>
+            {/* ── Doughnut Charts ─────────────────────────────────────────── */}
+            <div className="charts-grid">
+              <div className="chart-card">
+                <h3 className="chart-title">Fraud vs Legitimate</h3>
+                <div className="chart-container">
+                  <Doughnut data={fraudVsLegitData} options={doughnutOptions} />
+                </div>
+              </div>
+
+              <div className="chart-card">
+                <h3 className="chart-title">Approved vs Rejected</h3>
+                <div className="chart-container">
+                  <Doughnut data={approvalData} options={doughnutOptions} />
+                </div>
               </div>
             </div>
 
-            <div className="chart-card">
-              <h3 className="chart-title">Approved vs Rejected</h3>
-              <div className="chart-container">
-                <Doughnut data={approvalData} options={chartOptions} />
+            {/* ── Anomaly Score Distribution ──────────────────────────────── */}
+            {hasAnomalyDist && (
+              <div className="chart-section">
+                <div className="chart-card chart-card-full">
+                  <h3 className="chart-title">Anomaly Score Distribution</h3>
+                  <p className="chart-subtitle">
+                    Where your transactions cluster relative to the fraud threshold — lower scores are more anomalous
+                  </p>
+                  <div className="chart-container chart-container-tall">
+                    <Bar data={anomalyHistData} options={anomalyHistOptions} />
+                  </div>
+                </div>
               </div>
+            )}
+
+            {/* ── Scatter + Line ──────────────────────────────────────────── */}
+            <div className="charts-grid">
+              {hasScatter && (
+                <div className="chart-card">
+                  <h3 className="chart-title">Amount vs Anomaly Score</h3>
+                  <p className="chart-subtitle">
+                    Do high-value transactions get flagged? Sample of up to 2,000 transactions
+                  </p>
+                  <div className="chart-container chart-container-tall">
+                    <Scatter data={scatterData} options={scatterOptions} />
+                  </div>
+                </div>
+              )}
+
+              {hasTime && (
+                <div className="chart-card">
+                  <h3 className="chart-title">Transactions Over Time</h3>
+                  <p className="chart-subtitle">
+                    Upload volume and fraud events on the same timeline
+                  </p>
+                  <div className="chart-container chart-container-tall">
+                    <Line data={timeData} options={timeOptions} />
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          </>
         ) : (
           <div className="empty-state">
             <AlertTriangle size={48} />

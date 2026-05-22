@@ -151,3 +151,126 @@
     padding: 0.75rem 0.5rem;
   }
 }
+
+/* ── New admin analytics additions ──────────────────────────────────────── */
+
+.section-subtitle {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-top: -1rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.4;
+}
+
+/* V-feature box-plot chart needs enough height for 28 horizontal bars */
+.chart-container-vfeature {
+  height: 780px;
+  position: relative;
+}
+
+/* Two-column layout for confusion matrix + amount distribution */
+.admin-two-col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+/* Confusion matrix grid */
+.cm-grid {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 1.5rem;
+}
+
+.cm-col-header {
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6b7280;
+  padding: 0.4rem;
+  align-self: end;
+}
+
+.cm-row-header {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  padding-right: 0.5rem;
+  writing-mode: horizontal-tb;
+}
+
+.cm-cell {
+  border-radius: 8px;
+  padding: 1.2rem 0.75rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.cm-cell-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.cm-cell-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.cm-tp { background: #d1fae5; color: #065f46; }
+.cm-tn { background: #dbeafe; color: #1e40af; }
+.cm-fp { background: #fef3c7; color: #92400e; }
+.cm-fn { background: #fee2e2; color: #991b1b; }
+
+/* Model metrics row */
+.cm-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.cm-metric {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cm-metric-label {
+  font-size: 0.72rem;
+  color: #6b7280;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cm-metric-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+@media (max-width: 768px) {
+  .chart-container-vfeature {
+    height: 560px;
+  }
+
+  .admin-two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .cm-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
