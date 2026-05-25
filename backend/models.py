@@ -53,7 +53,9 @@ class Token(BaseModel):
     user: UserResponse
 
 class TokenData(BaseModel):
+    id: Optional[str] = None
     email: Optional[str] = None
+    role: Optional[str] = None
 
 class TransactionData(BaseModel):
     Time: float

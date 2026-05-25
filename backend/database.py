@@ -5,43 +5,41 @@ from datetime import datetime
 import certifi
 
 settings = get_settings()
-client = None
 
-# MongoDB client with certifi for SSL
+# MongoDB client with certifi for SSL.
+# We deliberately raise on failure so the app fails fast at startup rather than
+# handing out None collections that crash at request time.
 try:
     client = MongoClient(
         settings.MONGODB_URL,
         serverSelectionTimeoutMS=10000,
         connectTimeoutMS=10000,
-        tlsCAFile=certifi.where()  # Use certifi for SSL certificates
+        tlsCAFile=certifi.where(),  # Use certifi for SSL certificates
     )
     # Test connection
-    client.admin.command('ping')
+    client.admin.command("ping")
     print("✓ MongoDB Atlas connected successfully!")
 except ConnectionFailure as e:
-    print(f"✗ MongoDB connection failed: {e}")
-    print("Check: 1) Internet connection 2) MongoDB Atlas IP whitelist 3) Credentials")
+    raise RuntimeError(
+        f"MongoDB connection failed: {e}\n"
+        "Check: 1) Internet connection  2) MongoDB Atlas IP whitelist  "
+        "3) Credentials in backend/.env (MONGODB_URL)"
+    ) from e
 except Exception as e:
-    print(f"✗ Unexpected error: {e}")
+    raise RuntimeError(
+        f"Unexpected error initializing MongoDB client: {e}\n"
+        "Check MONGODB_URL in backend/.env"
+    ) from e
 
-if client is not None:
-    db = client[settings.DATABASE_NAME]
-    # Collections
-    users_collection = db["users"]
-    transactions_collection = db["transactions"]
-    detection_results_collection = db["detection_results"]
-else:
-    db = None
-    users_collection = None
-    transactions_collection = None
-    detection_results_collection = None
+db = client[settings.DATABASE_NAME]
+# Collections
+users_collection = db["users"]
+transactions_collection = db["transactions"]
+detection_results_collection = db["detection_results"]
+
 
 def init_db():
     """Initialize database with indexes"""
-    if db is None:
-        print("Index creation skipped: database connection is not available")
-        return
-
     try:
         # ── users ──────────────────────────────────────────────────────────
         users_collection.create_index([("email", ASCENDING)], unique=True)
@@ -73,7 +71,6 @@ def init_db():
     except Exception as e:
         print(f"Index creation warning: {e}")
 
+
 def get_db():
-    if db is None:
-        raise RuntimeError("Database is not initialized. Check MONGODB_URL and MongoDB Atlas access settings.")
     return db

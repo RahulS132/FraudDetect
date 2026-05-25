@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
+from fastapi.concurrency import run_in_threadpool
 from typing import List
 from datetime import datetime
 from bson import ObjectId
@@ -142,7 +143,11 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
         }
     ]
 
-    result = list(detection_results_collection.aggregate(pipeline))
+    # Sync pymongo blocks the event loop — push it to the threadpool so
+    # the dashboard's parallel requests can actually run in parallel.
+    result = await run_in_threadpool(
+        lambda: list(detection_results_collection.aggregate(pipeline))
+    )
 
     if not result:
         return DashboardStats(
@@ -165,37 +170,120 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
 
 
 # ── Anomaly Score Distribution ────────────────────────────────────────────────
+# Previous approach loaded every detection_result for the user into Python and
+# bucketed in numpy. For a Kaggle-sized upload (~284k rows) that meant pulling
+# hundreds of MB across the Atlas network on every dashboard load.
+#
+# New approach does it entirely in Mongo:
+#   1. One aggregation finds min/max anomaly_score + fraud/legit totals.
+#   2. A second aggregation uses $facet + $bucket to bucket fraud and legit
+#      counts into 20 fixed-width bins. Returns ~40 numbers total.
+
+_HISTOGRAM_BIN_COUNT = 20
+
 
 @router.get("/anomaly-score-distribution")
 async def get_anomaly_score_distribution(current_user: dict = Depends(get_current_user)):
     """Histogram of anomaly_score for the current user, split by fraud/legit."""
     user_id = current_user["id"]
 
-    docs = list(detection_results_collection.find(
-        {"user_id": user_id},
-        {"anomaly_score": 1, "is_fraud": 1, "_id": 0}
-    ))
+    # Pass 1: min/max + per-class totals in one aggregation.
+    minmax_pipeline = [
+        {"$match": {"user_id": user_id}},
+        {
+            "$group": {
+                "_id": None,
+                "min": {"$min": "$anomaly_score"},
+                "max": {"$max": "$anomaly_score"},
+                "fraud_total": {"$sum": {"$cond": [{"$eq": ["$is_fraud", True]}, 1, 0]}},
+                "legit_total": {"$sum": {"$cond": [{"$eq": ["$is_fraud", False]}, 1, 0]}},
+            }
+        },
+    ]
+    mm = await run_in_threadpool(
+        lambda: list(detection_results_collection.aggregate(minmax_pipeline))
+    )
 
-    if not docs:
+    if not mm:
         return {"bins": [], "fraud_counts": [], "legit_counts": []}
 
-    all_scores = np.array([d["anomaly_score"] for d in docs])
-    is_fraud   = np.array([d["is_fraud"]      for d in docs], dtype=bool)
+    mn = float(mm[0]["min"])
+    mx = float(mm[0]["max"])
+    fraud_total = int(mm[0]["fraud_total"])
+    legit_total = int(mm[0]["legit_total"])
 
-    mn, mx = float(all_scores.min()), float(all_scores.max())
+    # Edge case: every score is the same — return a single-bin histogram.
     if mn == mx:
-        return {"bins": [f"{mn:.3f}"],
-                "fraud_counts": [int(is_fraud.sum())],
-                "legit_counts": [int((~is_fraud).sum())]}
+        return {
+            "bins": [f"{mn:.3f}"],
+            "fraud_counts": [fraud_total],
+            "legit_counts": [legit_total],
+        }
 
-    bin_edges = np.linspace(mn, mx, 21)
-    fraud_hist, _ = np.histogram(all_scores[is_fraud],  bins=bin_edges)
-    legit_hist, _ = np.histogram(all_scores[~is_fraud], bins=bin_edges)
+    # Build 21 boundaries → 20 bins. Nudge the final boundary up slightly so
+    # values exactly equal to mx land in the last bucket instead of "default".
+    bin_edges = np.linspace(mn, mx, _HISTOGRAM_BIN_COUNT + 1).tolist()
+    bin_edges[-1] = mx + max(abs(mx), 1.0) * 1e-9
+
+    # Pass 2: bucket fraud and legit separately with $facet.
+    bucket_pipeline = [
+        {"$match": {"user_id": user_id}},
+        {
+            "$facet": {
+                "fraud": [
+                    {"$match": {"is_fraud": True}},
+                    {
+                        "$bucket": {
+                            "groupBy": "$anomaly_score",
+                            "boundaries": bin_edges,
+                            "default": "outliers",
+                            "output": {"count": {"$sum": 1}},
+                        }
+                    },
+                ],
+                "legit": [
+                    {"$match": {"is_fraud": False}},
+                    {
+                        "$bucket": {
+                            "groupBy": "$anomaly_score",
+                            "boundaries": bin_edges,
+                            "default": "outliers",
+                            "output": {"count": {"$sum": 1}},
+                        }
+                    },
+                ],
+            }
+        },
+    ]
+    facet_result = await run_in_threadpool(
+        lambda: list(detection_results_collection.aggregate(bucket_pipeline))
+    )
+
+    fraud_buckets = facet_result[0]["fraud"] if facet_result else []
+    legit_buckets = facet_result[0]["legit"] if facet_result else []
+
+    # $bucket returns a sparse list of {_id: lower_boundary, count: N} — only
+    # buckets with at least one document. Expand to a dense 20-element array.
+    def _densify(buckets):
+        counts = [0] * _HISTOGRAM_BIN_COUNT
+        for b in buckets:
+            if b["_id"] == "outliers":
+                continue
+            # _id is exactly one of the boundary floats we sent in. Match by
+            # nearest-edge index using a small tolerance to be safe against
+            # any float-roundtrip drift.
+            lower = float(b["_id"])
+            # bin_edges has 21 entries; the first 20 are lower boundaries.
+            for i in range(_HISTOGRAM_BIN_COUNT):
+                if abs(bin_edges[i] - lower) <= 1e-9 * max(abs(bin_edges[i]), 1.0):
+                    counts[i] = int(b["count"])
+                    break
+        return counts
 
     return {
-        "bins":         [f"{b:.3f}" for b in bin_edges[:-1]],
-        "fraud_counts": fraud_hist.tolist(),
-        "legit_counts": legit_hist.tolist()
+        "bins": [f"{bin_edges[i]:.3f}" for i in range(_HISTOGRAM_BIN_COUNT)],
+        "fraud_counts": _densify(fraud_buckets),
+        "legit_counts": _densify(legit_buckets),
     }
 
 
@@ -211,24 +299,28 @@ async def get_amount_vs_anomaly(current_user: dict = Depends(get_current_user)):
     user_id = current_user["id"]
 
     # Step 1 — sample detection results (user_id index used)
-    sample_docs = list(detection_results_collection.aggregate([
-        {"$match": {"user_id": user_id}},
-        {"$sample": {"size": 2000}},
-        {"$project": {"transaction_id": 1, "anomaly_score": 1, "is_fraud": 1, "_id": 0}}
-    ]))
+    sample_docs = await run_in_threadpool(
+        lambda: list(detection_results_collection.aggregate([
+            {"$match": {"user_id": user_id}},
+            {"$sample": {"size": 2000}},
+            {"$project": {"transaction_id": 1, "anomaly_score": 1, "is_fraud": 1, "_id": 0}}
+        ]))
+    )
 
     if not sample_docs:
         return {"fraud_points": [], "legit_points": []}
 
     # Step 2 — fetch transaction amounts by _id using $in (uses _id index)
     txn_ids = [ObjectId(d["transaction_id"]) for d in sample_docs if d.get("transaction_id")]
-    txn_amount = {
-        str(doc["_id"]): doc["Amount"]
-        for doc in transactions_collection.find(
-            {"_id": {"$in": txn_ids}},
-            {"Amount": 1}
-        )
-    }
+    txn_amount = await run_in_threadpool(
+        lambda: {
+            str(doc["_id"]): doc["Amount"]
+            for doc in transactions_collection.find(
+                {"_id": {"$in": txn_ids}},
+                {"Amount": 1}
+            )
+        }
+    )
 
     # Step 3 — merge in Python
     fraud_points, legit_points = [], []
@@ -261,7 +353,9 @@ async def get_transactions_over_time(current_user: dict = Depends(get_current_us
         {"$sort": {"_id": 1}}
     ]
 
-    results = list(detection_results_collection.aggregate(pipeline))
+    results = await run_in_threadpool(
+        lambda: list(detection_results_collection.aggregate(pipeline))
+    )
     return {
         "dates":        [r["_id"]   for r in results],
         "total_counts": [r["total"] for r in results],

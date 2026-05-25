@@ -2,7 +2,12 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from datetime import datetime, timedelta
 from models import UserCreate, UserLogin, Token, UserResponse, UserRole
 from database import users_collection
-from auth import get_password_hash, authenticate_user, create_access_token, get_current_user
+from auth import (
+    get_password_hash,
+    authenticate_user,
+    create_access_token,
+    get_full_current_user,
+)
 from config import get_settings
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -38,11 +43,17 @@ async def register(user: UserCreate):
     # Insert into database
     result = users_collection.insert_one(user_doc)
     user_doc["id"] = str(result.inserted_id)
-    
-    # Create access token
+
+    # Create access token — include id+role so request handlers don't have to
+    # re-query Mongo on every request just to get them.
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
+        data={
+            "sub": user.email,
+            "id": user_doc["id"],
+            "role": user_doc["role"],
+        },
+        expires_delta=access_token_expires,
     )
     
     # Prepare user response (exclude hashed_password)
@@ -72,12 +83,18 @@ async def login(credentials: UserLogin):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Create access token
+    # Create access token — include id+role so request handlers don't have to
+    # re-query Mongo on every request just to get them.
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user["email"]}, expires_delta=access_token_expires
+        data={
+            "sub": user["email"],
+            "id": str(user["_id"]),
+            "role": user["role"],
+        },
+        expires_delta=access_token_expires,
     )
-    
+
     # Prepare user response (exclude hashed_password)
     user_response = UserResponse(
         id=str(user["_id"]),
@@ -95,8 +112,8 @@ async def login(credentials: UserLogin):
     )
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: dict = Depends(get_current_user)):
-    """Get current user information"""
+async def get_current_user_info(current_user: dict = Depends(get_full_current_user)):
+    """Get current user information (fetches full profile from Mongo)."""
     return UserResponse(
         id=current_user["id"],
         email=current_user["email"],
