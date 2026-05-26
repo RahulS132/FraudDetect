@@ -39,14 +39,15 @@ cd FraudDetect
 # Python — pyenv reads .python-version automatically
 pyenv install 3.13.1
 python -m venv .venv
-source .venv/bin/activate            # Windows: .venv\Scripts\activate
-pip install --upgrade pip
+source .venv/bin/activate                          # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip                # Windows: python.exe -m pip install --upgrade pip
 pip install -r backend/requirements.txt
 
-# Node — nvm reads .nvmrc automatically
+# Node — pass the version explicitly so it works on both nvm (macOS/Linux)
+# and nvm-windows (which doesn't auto-read .nvmrc).
 cd frontend
-nvm install
-nvm use
+nvm install 20.18.0
+nvm use 20.18.0
 npm ci
 cd ..
 ```
@@ -67,7 +68,7 @@ python main.py
 ```bash
 # Terminal 2 — frontend
 cd frontend
-nvm use
+nvm use 20.18.0
 npm run dev
 ```
 
@@ -82,7 +83,7 @@ npm run dev
 - **`pyenv: command not found`** — finish pyenv's shell-setup step (add the snippet to `~/.zshrc` or `~/.bashrc`), then open a new terminal.
 - **`python --version` shows the wrong version** — confirm `.python-version` exists in the project root, then run `pyenv rehash`.
 - **`nvm: command not found`** — same idea; source nvm in your shell rc file.
-- **`npm ci` complains about engines** — you're not on Node 20.x. Run `nvm use` from `frontend/`.
+- **`npm ci` complains about engines** — you're not on Node 20.x. Run `nvm use 20.18.0` from `frontend/`.
 - **`bcrypt` errors on import** — stale venv. Reset it: `rm -rf .venv && python -m venv .venv && source .venv/bin/activate && pip install -r backend/requirements.txt`.
 - **A package fails to install on Python 3.13** — confirm `python --version` reads `3.13.1`, not 3.12 or 3.14.
 
