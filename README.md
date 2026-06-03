@@ -14,9 +14,18 @@ Users upload a CSV of transactions (Kaggle credit-card format), the backend runs
 
 - Anomaly detection with scikit-learn's Isolation Forest
 - Interactive dashboards backed by Chart.js
+- **Real-time updates** — dashboards, charts, and summary cards refresh live via Server-Sent Events (no page reload), with a polling fallback
+- **Instant fraud notifications** — flagged transactions push real-time alerts to the affected user and all admins; notification center with unread/read state, severity, and history persisted in MongoDB
+- **Searchable transactions** — search/filter/sort by id, user, amount, date, category, description, tags, and fraud status (users see their own; admins see all)
+- **Transaction tags & labels** — Food, Rent, Salary, Utilities, Entertainment, Investment, Travel, Insurance; assignable at creation and editable later
+- **Clickable transaction details** — every row opens a drawer with full detail and inline tag/category/description editing
+- **Admin transaction management** — create transactions for any user individually or in bulk, with validation and an audit log
+- **Per-user admin views** — risk score, fraud history, transaction volume, and spending analytics for any selected user
 - JWT authentication with role-based access (user / admin)
 - Per-user data isolation; admin role for global views
 - CSV ingestion with the standard Kaggle credit-card schema
+
+> **New to the project / just pulled these features?** Setup and run steps are unchanged (below). The backend auto-creates the new collections and indexes on first startup — no migration needed. See [FEATURE_IMPLEMENTATION.md](FEATURE_IMPLEMENTATION.md) for the full architecture, schema, and API details.
 
 ## Quick start
 
@@ -109,7 +118,8 @@ FraudDetect/
 │   │   ├── pages/           Dashboard, login, register, etc.
 │   │   └── App.jsx
 │   └── package.json
-└── sample_data.csv          Example dataset
+├── sample_data.csv          Example dataset (Kaggle columns only)
+└── sample_data_au.csv       Example dataset with Australian merchants + tags
 ```
 
 ## Tech stack
@@ -139,6 +149,17 @@ GET    /api/transactions/anomaly-score-distribution
 GET    /api/transactions/amount-vs-anomaly
 GET    /api/transactions/transactions-over-time
 
+# Transactions — search & detail (auto-scoped: users see own, admins see all)
+GET    /api/transactions/search
+GET    /api/transactions/tags/options
+GET    /api/transactions/{txn_id}
+PATCH  /api/transactions/{txn_id}/tags
+
+# Notifications & real-time
+GET    /api/notifications
+POST   /api/notifications/mark-read
+GET    /api/stream?token=<jwt>          # Server-Sent Events
+
 # Admin (admin role required)
 GET    /api/admin/analytics
 GET    /api/admin/fraud-rates-by-user
@@ -147,6 +168,14 @@ GET    /api/admin/fraud-rate-trend
 GET    /api/admin/v-feature-boxplots
 GET    /api/admin/confusion-matrix
 GET    /api/admin/amount-distribution
+
+# Admin — transaction management & per-user views
+GET    /api/admin/users
+GET    /api/admin/users/{user_id}
+GET    /api/admin/users/{user_id}/transactions
+GET    /api/admin/users/{user_id}/analytics
+POST   /api/admin/transactions/bulk
+GET    /api/admin/audit-logs
 ```
 
 Full interactive documentation is generated at `/docs`.

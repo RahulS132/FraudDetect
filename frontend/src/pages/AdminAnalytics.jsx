@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../lib/api';
+import { useRealtime } from '../contexts/RealtimeContext';
+import { TopBar } from '../components/TopBar';
 import { Bar, Line, Scatter } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -32,6 +35,7 @@ ChartJS.register(
 );
 
 export const AdminAnalytics = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [fraudRates, setFraudRates] = useState([]);
   const [anomalyDist, setAnomalyDist] = useState(null);
@@ -41,12 +45,9 @@ export const AdminAnalytics = () => {
   const [amountDist, setAmountDist] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { onTransactionsUpdated } = useRealtime();
 
-  useEffect(() => {
-    fetchAdminData();
-  }, []);
-
-  const fetchAdminData = async () => {
+  const fetchAdminData = useCallback(async () => {
     try {
       const [
         statsRes,
@@ -57,13 +58,13 @@ export const AdminAnalytics = () => {
         confRes,
         amountRes,
       ] = await Promise.all([
-        axios.get('/api/admin/analytics'),
-        axios.get('/api/admin/fraud-rates-by-user'),
-        axios.get('/api/admin/global-anomaly-distribution'),
-        axios.get('/api/admin/fraud-rate-trend'),
-        axios.get('/api/admin/v-feature-boxplots'),
-        axios.get('/api/admin/confusion-matrix'),
-        axios.get('/api/admin/amount-distribution'),
+        api.get('/api/admin/analytics'),
+        api.get('/api/admin/fraud-rates-by-user'),
+        api.get('/api/admin/global-anomaly-distribution'),
+        api.get('/api/admin/fraud-rate-trend'),
+        api.get('/api/admin/v-feature-boxplots'),
+        api.get('/api/admin/confusion-matrix'),
+        api.get('/api/admin/amount-distribution'),
       ]);
 
       setStats(statsRes.data);
@@ -80,7 +81,17 @@ export const AdminAnalytics = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAdminData();
+  }, [fetchAdminData]);
+
+  // Real-time: refresh global analytics whenever any user's transactions change.
+  useEffect(() => {
+    const unsub = onTransactionsUpdated(() => fetchAdminData());
+    return unsub;
+  }, [onTransactionsUpdated, fetchAdminData]);
 
   if (loading) {
     return (
@@ -336,14 +347,19 @@ export const AdminAnalytics = () => {
     <div className="layout">
       <Sidebar />
       <div className="main-content">
-        <div className="page-header">
-          <h1 className="page-title">Admin Analytics</h1>
-          <p className="page-subtitle">Global fraud detection statistics across all users</p>
-        </div>
+        <TopBar
+          title="Admin Analytics"
+          subtitle="Global fraud detection statistics across all users"
+        />
 
         {/* ── Stat Cards ─────────────────────────────────────────────────── */}
         <div className="stats-grid">
-          <div className="stat-card stat-primary">
+          <div
+            className="stat-card stat-primary stat-clickable"
+            role="button" tabIndex={0}
+            onClick={() => navigate('/admin/users')}
+            onKeyDown={(e) => e.key === 'Enter' && navigate('/admin/users')}
+          >
             <div className="stat-icon"><Users size={24} /></div>
             <div className="stat-content">
               <div className="stat-label">Total Users</div>
@@ -351,7 +367,12 @@ export const AdminAnalytics = () => {
             </div>
           </div>
 
-          <div className="stat-card stat-info">
+          <div
+            className="stat-card stat-info stat-clickable"
+            role="button" tabIndex={0}
+            onClick={() => navigate('/transactions')}
+            onKeyDown={(e) => e.key === 'Enter' && navigate('/transactions')}
+          >
             <div className="stat-icon"><Activity size={24} /></div>
             <div className="stat-content">
               <div className="stat-label">Total Transactions</div>
@@ -359,7 +380,12 @@ export const AdminAnalytics = () => {
             </div>
           </div>
 
-          <div className="stat-card stat-danger">
+          <div
+            className="stat-card stat-danger stat-clickable"
+            role="button" tabIndex={0}
+            onClick={() => navigate('/transactions?filter=fraud')}
+            onKeyDown={(e) => e.key === 'Enter' && navigate('/transactions?filter=fraud')}
+          >
             <div className="stat-icon"><AlertTriangle size={24} /></div>
             <div className="stat-content">
               <div className="stat-label">Total Fraud Detected</div>

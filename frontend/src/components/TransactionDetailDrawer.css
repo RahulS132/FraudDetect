@@ -1,0 +1,117 @@
+.tdd-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 1100;
+  animation: tdd-fade 0.18s ease;
+}
+@keyframes tdd-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.tdd-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 460px;
+  max-width: 100vw;
+  background: #fff;
+  z-index: 1101;
+  box-shadow: -12px 0 40px rgba(15, 23, 42, 0.2);
+  display: flex;
+  flex-direction: column;
+  animation: tdd-slide 0.24s ease-out;
+}
+@keyframes tdd-slide { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+.tdd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 1.3rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+.tdd-header h2 { font-size: 1.1rem; margin: 0; color: #1e293b; }
+.tdd-close {
+  background: transparent; border: none; cursor: pointer; color: #64748b;
+  display: flex; padding: 4px; border-radius: 6px;
+}
+.tdd-close:hover { background: #f1f5f9; color: #1e293b; }
+
+.tdd-body { padding: 1.3rem; overflow-y: auto; }
+.tdd-loading, .tdd-error {
+  padding: 2.5rem 1.3rem; display: flex; align-items: center; gap: 0.5rem;
+  color: #64748b; justify-content: center;
+}
+.tdd-error { color: #ef4444; }
+
+.tdd-spin { animation: tdd-rotate 0.9s linear infinite; }
+@keyframes tdd-rotate { to { transform: rotate(360deg); } }
+
+.tdd-status {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 0.9rem; border-radius: 10px; font-weight: 600;
+  margin-bottom: 1rem;
+}
+.tdd-status.fraud { background: #fef2f2; color: #b91c1c; }
+.tdd-status.ok { background: #f0fdf4; color: #15803d; }
+
+.tdd-sev {
+  margin-left: auto; font-size: 0.7rem; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px;
+  background: #fff; font-weight: 700;
+}
+.tdd-sev-critical { color: #fff; background: #b91c1c; }
+.tdd-sev-high { color: #fff; background: #ef4444; }
+.tdd-sev-medium { color: #fff; background: #f59e0b; }
+.tdd-sev-low { color: #fff; background: #eab308; }
+
+.tdd-merchant { font-size: 1.25rem; font-weight: 700; color: #1e293b; margin-bottom: 0.25rem; }
+.tdd-amount { font-size: 2rem; font-weight: 700; color: #1e293b; margin-bottom: 1.2rem; }
+
+.tdd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem 1rem; margin: 0; }
+.tdd-grid > div { min-width: 0; }
+.tdd-grid dt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; margin-bottom: 2px; }
+.tdd-grid dd { margin: 0; font-size: 0.88rem; color: #1e293b; word-break: break-word; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem !important; }
+
+.tdd-tag {
+  background: #eef2ff; color: #4338ca; padding: 2px 8px;
+  border-radius: 6px; font-size: 0.78rem; font-weight: 600;
+}
+
+.tdd-desc { margin-top: 1.2rem; }
+.tdd-desc dt { font-size: 0.72rem; text-transform: uppercase; color: #94a3b8; }
+.tdd-desc p { margin: 4px 0 0; font-size: 0.88rem; color: #334155; line-height: 1.45; }
+
+.tdd-meta { margin-top: 1.2rem; }
+.tdd-meta summary { cursor: pointer; color: #3b82f6; font-size: 0.85rem; }
+.tdd-meta pre {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 0.8rem; font-size: 0.74rem; overflow-x: auto; margin-top: 0.6rem; color: #334155;
+}
+
+.tdd-edit { margin-top: 1.6rem; border-top: 1px solid #f1f5f9; padding-top: 1.2rem; }
+.tdd-edit h3 { font-size: 0.95rem; margin: 0 0 0.8rem; color: #1e293b; }
+.tdd-edit label {
+  display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem;
+  color: #64748b; margin-bottom: 0.8rem; font-weight: 600;
+}
+.tdd-edit select, .tdd-edit input, .tdd-edit textarea {
+  border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.55rem 0.7rem;
+  font-size: 0.88rem; color: #1e293b; font-weight: 400; font-family: inherit;
+}
+.tdd-edit select:focus, .tdd-edit input:focus, .tdd-edit textarea:focus {
+  outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+}
+.tdd-save {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #3b82f6; color: #fff; border: none; border-radius: 8px;
+  padding: 0.6rem 1.1rem; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+}
+.tdd-save:hover { background: #2563eb; }
+.tdd-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@media (max-width: 520px) {
+  .tdd-grid { grid-template-columns: 1fr; }
+  .tdd-drawer { width: 100vw; }
+}

@@ -1,0 +1,9 @@
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.topbar-titles { min-width: 0; }
+.topbar-actions { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }

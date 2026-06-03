@@ -1,4 +1,4 @@
-from pymongo import MongoClient, ASCENDING, DESCENDING
+from pymongo import MongoClient, ASCENDING, DESCENDING, TEXT
 from pymongo.errors import ConnectionFailure
 from config import get_settings
 from datetime import datetime
@@ -12,9 +12,23 @@ settings = get_settings()
 try:
     client = MongoClient(
         settings.MONGODB_URL,
-        serverSelectionTimeoutMS=10000,
-        connectTimeoutMS=10000,
         tlsCAFile=certifi.where(),  # Use certifi for SSL certificates
+        # ── Connection pool ──────────────────────────────────────────────────
+        # Atlas free tier (M0) allows up to 500 connections. We keep a small,
+        # bounded pool well under that limit so the app never exhausts Atlas —
+        # even with reloads, multiple workers, or many concurrent requests.
+        maxPoolSize=20,            # cap concurrent sockets
+        minPoolSize=0,             # don't hold idle sockets open on M0
+        maxIdleTimeMS=30000,       # reap idle sockets after 30s
+        waitQueueTimeoutMS=10000,  # fail fast instead of hanging if pool is busy
+        # ── Timeouts ─────────────────────────────────────────────────────────
+        serverSelectionTimeoutMS=8000,
+        connectTimeoutMS=8000,
+        socketTimeoutMS=45000,     # kill a query that hangs (prevents stuck threads)
+        # ── Reliability ──────────────────────────────────────────────────────
+        retryWrites=True,          # retry a write once on transient network blips
+        retryReads=True,
+        appname="frauddetect",     # shows up in Atlas metrics for debugging
     )
     # Test connection
     client.admin.command("ping")
@@ -32,14 +46,17 @@ except Exception as e:
     ) from e
 
 db = client[settings.DATABASE_NAME]
+
 # Collections
 users_collection = db["users"]
 transactions_collection = db["transactions"]
 detection_results_collection = db["detection_results"]
+notifications_collection = db["notifications"]
+audit_logs_collection = db["audit_logs"]
 
 
 def init_db():
-    """Initialize database with indexes"""
+    """Initialize database with indexes (idempotent)."""
     try:
         # ── users ──────────────────────────────────────────────────────────
         users_collection.create_index([("email", ASCENDING)], unique=True)
@@ -48,28 +65,73 @@ def init_db():
         # ── transactions ───────────────────────────────────────────────────
         transactions_collection.create_index([("user_id", ASCENDING)])
         transactions_collection.create_index([("created_at", DESCENDING)])
+        # New business fields for the manual/CRUD + search features
+        transactions_collection.create_index([("user_id", ASCENDING), ("created_at", DESCENDING)])
+        transactions_collection.create_index([("category", ASCENDING)])
+        transactions_collection.create_index([("tags", ASCENDING)])
+        transactions_collection.create_index([("source", ASCENDING)])
+        transactions_collection.create_index([("Amount", ASCENDING)])
+        transactions_collection.create_index([("tag", ASCENDING)])
+        transactions_collection.create_index([("creation_source", ASCENDING)])
+        # Denormalized fraud fields (mirrored from detection_results) so the
+        # search/listing query can filter + sort on this collection alone.
+        transactions_collection.create_index([("is_fraud", ASCENDING)])
+        transactions_collection.create_index([("anomaly_score", ASCENDING)])
+        # Compound indexes matching the search's default sort orders.
+        transactions_collection.create_index(
+            [("user_id", ASCENDING), ("is_fraud", ASCENDING), ("created_at", DESCENDING)]
+        )
+        transactions_collection.create_index([("Amount", DESCENDING)])
+        # Full-text search across description + category + tags. A collection can
+        # only have ONE text index, so we combine the searchable string fields.
+        try:
+            transactions_collection.create_index(
+                [("description", TEXT), ("category", TEXT), ("tags", TEXT)],
+                name="txn_text_search",
+                default_language="english",
+            )
+        except Exception as e:
+            # A text index with different fields may already exist — that's fine.
+            print(f"Text index note: {e}")
 
         # ── detection_results ──────────────────────────────────────────────
-        # Single-field indexes (original)
         detection_results_collection.create_index([("user_id", ASCENDING)])
         detection_results_collection.create_index([("transaction_id", ASCENDING)])
         detection_results_collection.create_index([("created_at", DESCENDING)])
-
-        # Compound indexes for dashboard chart queries
-        # Used by: anomaly-score-distribution, transactions-over-time (user scoped)
         detection_results_collection.create_index(
             [("user_id", ASCENDING), ("created_at", DESCENDING)]
         )
-        # Used by: v-feature-boxplots, amount-distribution (filter by is_fraud globally)
         detection_results_collection.create_index([("is_fraud", ASCENDING)])
-        # Used by: user amount-vs-anomaly (filter user then sample)
         detection_results_collection.create_index(
             [("user_id", ASCENDING), ("is_fraud", ASCENDING)]
         )
+        detection_results_collection.create_index([("severity", ASCENDING)])
+
+        # ── notifications ──────────────────────────────────────────────────
+        notifications_collection.create_index(
+            [("user_id", ASCENDING), ("created_at", DESCENDING)]
+        )
+        notifications_collection.create_index(
+            [("audience", ASCENDING), ("created_at", DESCENDING)]
+        )
+        notifications_collection.create_index([("is_read", ASCENDING)])
+
+        # ── audit_logs ─────────────────────────────────────────────────────
+        audit_logs_collection.create_index([("created_at", DESCENDING)])
+        audit_logs_collection.create_index([("actor_id", ASCENDING)])
+        audit_logs_collection.create_index([("target_user_id", ASCENDING)])
+        audit_logs_collection.create_index([("action", ASCENDING)])
 
         print("✓ Database indexes created")
     except Exception as e:
         print(f"Index creation warning: {e}")
+
+    # NOTE: the one-time denormalization backfill is intentionally NOT run on
+    # startup — on a large collection it would block boot. Run it once manually:
+    #     python backfill.py
+    # New uploads/admin-created transactions already write the denormalized
+    # fields, and the search service falls back to the joined detection_result
+    # for any rows not yet backfilled, so the app works correctly either way.
 
 
 def get_db():

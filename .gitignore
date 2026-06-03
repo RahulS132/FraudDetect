@@ -1,5 +1,6 @@
 /PROJECT_SUMMARY.md
 /SETUP_CONSISTENCY_GUIDE.md
+/FEATURE_IMPLEMENTATION.md
 
 
 # # Environment files
@@ -17,3 +18,7 @@ __pycache__/
 
 # Data files
 *.csv
+
+# One-off maintenance / migration scripts
+/backend/backfill.py
+/backend/reset_data.py

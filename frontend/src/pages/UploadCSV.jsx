@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { useNavigate } from 'react-router-dom';
@@ -44,7 +44,7 @@ export const UploadCSV = () => {
     formData.append('file', file);
 
     try {
-      const response = await axios.post('/api/transactions/upload-csv', formData, {
+      const response = await api.post('/api/transactions/upload-csv', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

@@ -1,0 +1,131 @@
+.txe { width: 100%; }
+.txe-title { font-size: 1.05rem; color: #1e293b; margin: 0 0 1rem; }
+
+.txe-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.txe-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  padding: 0.5rem 0.8rem;
+  flex: 1 1 280px;
+  color: #94a3b8;
+}
+.txe-search input {
+  border: none;
+  outline: none;
+  flex: 1;
+  font-size: 0.88rem;
+  color: #1e293b;
+  background: transparent;
+}
+
+.txe-select, .txe-amount {
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.85rem;
+  color: #1e293b;
+  background: #fff;
+}
+.txe-amount { width: 100px; }
+.txe-select:focus, .txe-amount:focus, .txe-search:focus-within {
+  outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+}
+
+.txe-count {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-left: auto; color: #64748b; font-size: 0.82rem;
+}
+
+.txe-state {
+  display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+  padding: 3rem 1rem; color: #94a3b8; flex-direction: column;
+}
+.txe-state.txe-error { color: #ef4444; }
+.txe-spin { animation: txe-rot 0.9s linear infinite; }
+@keyframes txe-rot { to { transform: rotate(360deg); } }
+
+.txe-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  background: #fff;
+  position: relative;
+}
+
+/* Thin indeterminate progress bar shown across the top of the table on refetch,
+   instead of replacing the whole table with a "Loading…" placeholder. */
+.txe-loadbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  overflow: hidden;
+  background: #eef2ff;
+  z-index: 2;
+}
+.txe-loadbar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 35%;
+  background: #3b82f6;
+  border-radius: 3px;
+  animation: txe-load 1.1s ease-in-out infinite;
+}
+@keyframes txe-load {
+  0%   { left: -35%; }
+  100% { left: 100%; }
+}
+.txe-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.txe-table thead th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid #eef2f7;
+  white-space: nowrap;
+}
+.txe-table th.sortable { cursor: pointer; user-select: none; }
+.txe-table th.sortable:hover { color: #3b82f6; }
+
+.txe-row { cursor: pointer; transition: background 0.12s ease; }
+.txe-row:hover { background: #f8fafc; }
+.txe-table td { padding: 0.7rem 1rem; border-bottom: 1px solid #f5f8fc; color: #1e293b; }
+.txe-table tr:last-child td { border-bottom: none; }
+
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.txe-id { color: #475569; font-size: 0.8rem; }
+.txe-name { font-weight: 600; color: #1e293b; }
+.txe-amt { font-weight: 600; }
+.txe-muted { color: #94a3b8; }
+
+.txe-tag { background: #eef2ff; color: #4338ca; padding: 2px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; }
+
+.txe-status { padding: 3px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 600; }
+.txe-status.fraud { background: #fef2f2; color: #b91c1c; }
+.txe-status.ok { background: #f0fdf4; color: #15803d; }
+
+.txe-pager {
+  display: flex; align-items: center; justify-content: center; gap: 1rem;
+  margin-top: 1.2rem; color: #64748b; font-size: 0.85rem;
+}
+.txe-pager button {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid #e2e8f0; background: #fff; border-radius: 8px;
+  padding: 0.45rem 0.9rem; cursor: pointer; color: #334155; font-size: 0.85rem;
+}
+.txe-pager button:hover:not(:disabled) { background: #f8fafc; border-color: #cbd5e1; }
+.txe-pager button:disabled { opacity: 0.5; cursor: not-allowed; }

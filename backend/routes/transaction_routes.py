@@ -5,12 +5,28 @@ from datetime import datetime
 from bson import ObjectId
 import asyncio
 import numpy as np
-from models import DashboardStats
+from models import DashboardStats, TransactionTag
 from database import transactions_collection, detection_results_collection
 from auth import get_current_user
-from fraud_detection import detector
+from fraud_detection import detector, severity_from_score
+from services.events import broker, ADMINS
+from services import notifications as notif_service
+import pandas as pd
 
 router = APIRouter(prefix="/api/transactions", tags=["Transactions"])
+
+# Canonical tag set — used to validate optional `Tag` column values on upload.
+_VALID_TAGS = {t.value for t in TransactionTag}
+
+
+def _clean_str(value) -> str | None:
+    """Return a trimmed string for a CSV cell, or None for blank/NaN."""
+    if value is None:
+        return None
+    if isinstance(value, float) and pd.isna(value):
+        return None
+    s = str(value).strip()
+    return s if s and s.lower() != "nan" else None
 
 # ── Sync helper — runs in a thread pool so it never blocks the event loop ────
 
@@ -60,8 +76,44 @@ def _process_upload_sync(content: bytes, user_id: str) -> dict:
             "V28": float(row['V28']),
             "Amount": float(row['Amount']),
             "Class": int(row['Class']),
-            "created_at": uploaded_at
+            "creation_source": "csv_upload",
+            "created_at": uploaded_at,
+            # Denormalized fraud fields so search/filter/sort run on this
+            # collection alone (no per-query join to detection_results).
+            "is_fraud": bool(row['is_fraud']),
+            "is_approved": bool(row['is_approved']),
+            "anomaly_score": float(row['anomaly_score']),
+            "actual_class": int(row['Class']),
+            "severity": severity_from_score(float(row['anomaly_score']), bool(row['is_fraud'])),
         }
+
+        # ── Optional business columns ────────────────────────────────────────
+        # If the CSV carries human-friendly columns we persist them so the
+        # transactions are searchable/filterable. All optional, case-insensitive.
+        #
+        # Naming (new scheme):
+        #   • "Name"     → business name  (also accepts legacy "Merchant")
+        #   • "Category" → canonical label/tag (also accepts legacy "Tag")
+        # The canonical label is stored in `tag` (unchanged DB field) and shown
+        # in the UI as "Category"; the business name is stored in `merchant`
+        # and shown as "Name".
+        getf = (lambda k: _clean_str(row.get(k))) if hasattr(row, 'get') else (lambda k: None)
+        merchant = getf('Name') or getf('Merchant')
+        category_label = getf('Category') or getf('Tag')
+        description = getf('Description')
+
+        if category_label:
+            # Normalise to the canonical casing; unknown → "Other".
+            match = next((t for t in _VALID_TAGS if t.lower() == category_label.lower()), None)
+            transaction_doc["tag"] = match or "Other"
+        if merchant:
+            transaction_doc["merchant"] = merchant
+        # Prefer an explicit Description; otherwise synthesise one from the name.
+        if description:
+            transaction_doc["description"] = description
+        elif merchant:
+            transaction_doc["description"] = merchant
+
         transactions_to_insert.append(transaction_doc)
 
     # Bulk insert transactions
@@ -108,6 +160,35 @@ async def upload_csv(
         content = await file.read()
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, _process_upload_sync, content, current_user["id"])
+
+        # ── Real-time fan-out ────────────────────────────────────────────────
+        # Tell the uploader's tabs (and all admins) that data changed so their
+        # dashboards/charts refresh without a page reload.
+        user_id = current_user["id"]
+        await broker.publish_to_user(user_id, "transactions_updated", {"reason": "csv_upload"})
+        await broker.publish_to_admins(
+            "transactions_updated", {"reason": "csv_upload", "user_id": user_id}
+        )
+
+        # One summary fraud notification per upload (avoids spamming one per row).
+        fraud_count = int(result.get("statistics", {}).get("fraud_detected", 0))
+        if fraud_count > 0:
+            await notif_service.create_notification(
+                audience=user_id,
+                user_id=user_id,
+                type="fraud_alert",
+                title="Fraud detected in your upload",
+                message=f"{fraud_count} transaction(s) in your upload were flagged as fraudulent.",
+                severity="high" if fraud_count > 10 else "medium",
+            )
+            await notif_service.create_notification(
+                audience=ADMINS,
+                user_id=None,
+                type="fraud_alert",
+                title="Fraud detected in a user upload",
+                message=f"{fraud_count} transaction(s) flagged for user {current_user.get('email', user_id)}.",
+                severity="high" if fraud_count > 10 else "medium",
+            )
         return result
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

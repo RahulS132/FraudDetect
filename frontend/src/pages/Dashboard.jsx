@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../lib/api';
+import { useRealtime } from '../contexts/RealtimeContext';
+import { TopBar } from '../components/TopBar';
 import { Doughnut, Bar, Scatter, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -32,24 +35,22 @@ ChartJS.register(
 );
 
 export const Dashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [anomalyDist, setAnomalyDist] = useState(null);
   const [amountVsAnomaly, setAmountVsAnomaly] = useState(null);
   const [txOverTime, setTxOverTime] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { onTransactionsUpdated } = useRealtime();
 
-  useEffect(() => {
-    fetchAll();
-  }, []);
-
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     try {
       const [statsRes, distRes, scatterRes, timeRes] = await Promise.all([
-        axios.get('/api/transactions/dashboard'),
-        axios.get('/api/transactions/anomaly-score-distribution'),
-        axios.get('/api/transactions/amount-vs-anomaly'),
-        axios.get('/api/transactions/transactions-over-time'),
+        api.get('/api/transactions/dashboard'),
+        api.get('/api/transactions/anomaly-score-distribution'),
+        api.get('/api/transactions/amount-vs-anomaly'),
+        api.get('/api/transactions/transactions-over-time'),
       ]);
       setStats(statsRes.data);
       setAnomalyDist(distRes.data);
@@ -62,7 +63,18 @@ export const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  // Real-time: re-fetch all dashboard data whenever transactions change
+  // (CSV upload, admin bulk-create, tag edits) — no page refresh needed.
+  useEffect(() => {
+    const unsub = onTransactionsUpdated(() => fetchAll());
+    return unsub;
+  }, [onTransactionsUpdated, fetchAll]);
 
   if (loading) {
     return (
@@ -265,14 +277,19 @@ export const Dashboard = () => {
     <div className="layout">
       <Sidebar />
       <div className="main-content">
-        <div className="page-header">
-          <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">Overview of your fraud detection statistics</p>
-        </div>
+        <TopBar
+          title="Dashboard"
+          subtitle="Overview of your fraud detection statistics"
+        />
 
-        {/* ── Stat Cards ─────────────────────────────────────────────────── */}
+        {/* ── Stat Cards (clickable → filtered Transactions) ─────────────── */}
         <div className="stats-grid">
-          <div className="stat-card stat-primary">
+          <div
+            className="stat-card stat-primary stat-clickable"
+            role="button" tabIndex={0}
+            onClick={() => navigate('/transactions')}
+            onKeyDown={(e) => e.key === 'Enter' && navigate('/transactions')}
+          >
             <div className="stat-icon"><Activity size={24} /></div>
             <div className="stat-content">
               <div className="stat-label">Total Transactions</div>
@@ -280,7 +297,12 @@ export const Dashboard = () => {
             </div>
           </div>
 
-          <div className="stat-card stat-success">
+          <div
+            className="stat-card stat-success stat-clickable"
+            role="button" tabIndex={0}
+            onClick={() => navigate('/transactions?filter=approved')}
+            onKeyDown={(e) => e.key === 'Enter' && navigate('/transactions?filter=approved')}
+          >
             <div className="stat-icon"><CheckCircle size={24} /></div>
             <div className="stat-content">
               <div className="stat-label">Approved</div>
@@ -291,7 +313,12 @@ export const Dashboard = () => {
             </div>
           </div>
 
-          <div className="stat-card stat-warning">
+          <div
+            className="stat-card stat-warning stat-clickable"
+            role="button" tabIndex={0}
+            onClick={() => navigate('/transactions?filter=fraud')}
+            onKeyDown={(e) => e.key === 'Enter' && navigate('/transactions?filter=fraud')}
+          >
             <div className="stat-icon"><XCircle size={24} /></div>
             <div className="stat-content">
               <div className="stat-label">Rejected</div>
@@ -299,7 +326,12 @@ export const Dashboard = () => {
             </div>
           </div>
 
-          <div className="stat-card stat-danger">
+          <div
+            className="stat-card stat-danger stat-clickable"
+            role="button" tabIndex={0}
+            onClick={() => navigate('/transactions?filter=fraud')}
+            onKeyDown={(e) => e.key === 'Enter' && navigate('/transactions?filter=fraud')}
+          >
             <div className="stat-icon"><AlertTriangle size={24} /></div>
             <div className="stat-content">
               <div className="stat-label">Fraud Detected</div>

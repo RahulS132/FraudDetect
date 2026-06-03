@@ -3,7 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from config import get_settings
 from database import init_db
-from routes import auth_routes, transaction_routes, admin_routes
+from routes import (
+    auth_routes,
+    transaction_routes,
+    admin_routes,
+    admin_tx_routes,
+    search_routes,
+    notification_routes,
+)
 
 settings = get_settings()
 
@@ -36,7 +43,10 @@ app.add_middleware(
 # Include routers
 app.include_router(auth_routes.router)
 app.include_router(transaction_routes.router)
+app.include_router(search_routes.router)
 app.include_router(admin_routes.router)
+app.include_router(admin_tx_routes.router)
+app.include_router(notification_routes.router)
 
 @app.get("/")
 async def root():
