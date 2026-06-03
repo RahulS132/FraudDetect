@@ -25,7 +25,6 @@ Users upload a CSV of transactions (Kaggle credit-card format), the backend runs
 - Per-user data isolation; admin role for global views
 - CSV ingestion with the standard Kaggle credit-card schema
 
-> **New to the project / just pulled these features?** Setup and run steps are unchanged (below). The backend auto-creates the new collections and indexes on first startup — no migration needed. See [FEATURE_IMPLEMENTATION.md](FEATURE_IMPLEMENTATION.md) for the full architecture, schema, and API details.
 
 ## Quick start
 
