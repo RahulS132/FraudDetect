@@ -54,6 +54,16 @@ detection_results_collection = db["detection_results"]
 notifications_collection = db["notifications"]
 audit_logs_collection = db["audit_logs"]
 
+# ── Second expansion collections ─────────────────────────────────────────────
+transaction_rules_collection = db["transaction_rules"]   # admin blocking rules
+fraud_config_collection = db["fraud_config"]             # single settings doc
+fraud_events_collection = db["fraud_events"]             # auto-block/flag events
+account_events_collection = db["account_events"]         # balance/credit history
+user_status_events_collection = db["user_status_events"] # block/unblock history
+# Phase 2 (created here so indexes exist ahead of time)
+email_verifications_collection = db["email_verifications"]
+login_attempts_collection = db["login_attempts"]
+
 
 def init_db():
     """Initialize database with indexes (idempotent)."""
@@ -121,6 +131,37 @@ def init_db():
         audit_logs_collection.create_index([("actor_id", ASCENDING)])
         audit_logs_collection.create_index([("target_user_id", ASCENDING)])
         audit_logs_collection.create_index([("action", ASCENDING)])
+
+        # ── second expansion ───────────────────────────────────────────────
+        # users: status filtering for admin user management
+        users_collection.create_index([("status", ASCENDING)])
+        # transaction rules
+        transaction_rules_collection.create_index([("enabled", ASCENDING)])
+        transaction_rules_collection.create_index([("rule_type", ASCENDING)])
+        transaction_rules_collection.create_index([("created_at", DESCENDING)])
+        # fraud events
+        fraud_events_collection.create_index([("created_at", DESCENDING)])
+        fraud_events_collection.create_index(
+            [("user_id", ASCENDING), ("created_at", DESCENDING)]
+        )
+        # account events (balance + credit-limit history)
+        account_events_collection.create_index(
+            [("user_id", ASCENDING), ("created_at", DESCENDING)]
+        )
+        account_events_collection.create_index([("type", ASCENDING)])
+        # user status events (block/unblock history)
+        user_status_events_collection.create_index(
+            [("user_id", ASCENDING), ("created_at", DESCENDING)]
+        )
+        # Phase 2 collections
+        email_verifications_collection.create_index([("email", ASCENDING)])
+        email_verifications_collection.create_index(
+            [("expires_at", ASCENDING)], expireAfterSeconds=0
+        )
+        login_attempts_collection.create_index(
+            [("user_id", ASCENDING), ("created_at", DESCENDING)]
+        )
+        login_attempts_collection.create_index([("email", ASCENDING)])
 
         print("✓ Database indexes created")
     except Exception as e:

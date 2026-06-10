@@ -10,6 +10,8 @@ from routes import (
     admin_tx_routes,
     search_routes,
     notification_routes,
+    account_routes,
+    rules_routes,
 )
 
 settings = get_settings()
@@ -47,6 +49,9 @@ app.include_router(search_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(admin_tx_routes.router)
 app.include_router(notification_routes.router)
+app.include_router(account_routes.user_router)
+app.include_router(account_routes.admin_router)
+app.include_router(rules_routes.router)
 
 @app.get("/")
 async def root():

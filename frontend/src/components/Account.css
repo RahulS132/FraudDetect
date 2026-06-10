@@ -1,0 +1,143 @@
+/* ── Status badge ─────────────────────────────────────────────────────────── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.status-badge.status-sm { padding: 2px 8px; font-size: 0.7rem; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.status-active { background: #dcfce7; color: #15803d; }
+.status-suspended { background: #fef3c7; color: #b45309; }
+.status-blocked { background: #fee2e2; color: #b91c1c; }
+.status-under_review { background: #e0e7ff; color: #4338ca; }
+
+/* ── Balance widgets (user dashboard) ─────────────────────────────────────── */
+.balance-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (max-width: 900px) { .balance-grid { grid-template-columns: 1fr; } }
+
+.balance-hero {
+  background: #fff;
+  color: #0f172a;
+  border-radius: 16px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  border-left: 4px solid #2563eb;
+}
+.balance-hero-top { display: flex; justify-content: space-between; align-items: flex-start; }
+.balance-hero-label { font-size: 0.78rem; color: #64748b; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600; }
+.balance-hero-value { font-size: 2rem; font-weight: 700; margin-top: 4px; color: #0f172a; }
+.balance-hero-sub { display: flex; gap: 28px; flex-wrap: wrap; padding-top: 14px; border-top: 1px solid #f1f5f9; }
+.balance-hero-sub > div { display: flex; flex-direction: column; gap: 2px; }
+.balance-hero-sub-label { font-size: 0.72rem; color: #94a3b8; }
+.balance-hero-sub-value { font-size: 1.05rem; font-weight: 700; color: #1e293b; }
+
+.util-card, .balance-mini {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.balance-mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.balance-mini .mini-row { display: flex; justify-content: space-between; align-items: center; }
+.mini-label { color: #64748b; font-size: 0.82rem; }
+.mini-value { font-weight: 700; color: #0f172a; font-size: 1rem; }
+
+.util-title { font-size: 0.85rem; color: #64748b; font-weight: 600; }
+.util-bar { height: 12px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+.util-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+.util-fill.low { background: #10b981; }
+.util-fill.med { background: #f59e0b; }
+.util-fill.high { background: #ef4444; }
+.util-meta { display: flex; justify-content: space-between; font-size: 0.8rem; color: #64748b; }
+.util-pct { font-size: 1.5rem; font-weight: 700; color: #0f172a; }
+
+.balance-frozen-note {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #e0f2fe; color: #0369a1; padding: 4px 10px;
+  border-radius: 8px; font-size: 0.78rem; font-weight: 600; width: fit-content;
+}
+
+/* ── Admin account panel ──────────────────────────────────────────────────── */
+.acct-panel { background: #fff; border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 18px; }
+.acct-panel h4 { margin-bottom: 14px; font-size: 0.95rem; color: #0f172a; display: flex; align-items: center; gap: 8px; }
+.acct-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.acct-stat { background: #f8fafc; border-radius: 10px; padding: 12px 14px; }
+.acct-stat-label { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; }
+.acct-stat-value { font-size: 1.15rem; font-weight: 700; color: #0f172a; margin-top: 4px; }
+.acct-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.acct-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 9px; font-size: 0.82rem; font-weight: 600;
+  background: #f1f5f9; color: #334155; transition: background 0.15s;
+}
+.acct-btn:hover { background: #e2e8f0; }
+.acct-btn.primary { background: #2563eb; color: #fff; }
+.acct-btn.primary:hover { background: #1d4ed8; }
+.acct-btn.warn { background: #fef3c7; color: #b45309; }
+.acct-btn.danger { background: #fee2e2; color: #b91c1c; }
+.acct-btn.danger:hover { background: #fecaca; }
+.acct-btn.ok { background: #dcfce7; color: #15803d; }
+
+/* ── Modal ────────────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;
+}
+.modal {
+  background: #fff; border-radius: 16px; width: 100%; max-width: 440px;
+  padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+}
+.modal h3 { margin-bottom: 6px; font-size: 1.1rem; color: #0f172a; }
+.modal p.modal-sub { color: #64748b; font-size: 0.85rem; margin-bottom: 18px; }
+.modal label { display: block; font-size: 0.8rem; font-weight: 600; color: #334155; margin: 12px 0 6px; }
+.modal input, .modal select, .modal textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 9px;
+  font-size: 0.9rem; background: #fff;
+}
+.modal textarea { resize: vertical; min-height: 64px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.modal-actions button { padding: 10px 16px; border-radius: 9px; font-weight: 600; font-size: 0.88rem; }
+.btn-cancel { background: #f1f5f9; color: #475569; }
+.btn-confirm { background: #2563eb; color: #fff; }
+.btn-confirm.danger { background: #dc2626; }
+
+/* ── Account history list ─────────────────────────────────────────────────── */
+.acct-history { list-style: none; display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+.acct-history li { display: flex; align-items: center; gap: 12px; padding: 8px 10px; background: #f8fafc; border-radius: 8px; font-size: 0.82rem; }
+.acct-hist-type { font-weight: 600; color: #334155; text-transform: capitalize; }
+.acct-hist-amt { color: #0f172a; font-weight: 600; }
+.acct-hist-when { margin-left: auto; color: #94a3b8; font-size: 0.76rem; }
+
+.au-spin { animation: acct-spin 0.9s linear infinite; }
+@keyframes acct-spin { to { transform: rotate(360deg); } }
+
+/* ── Security section ─────────────────────────────────────────────────────── */
+.acct-security { margin-top: 16px; padding-top: 14px; border-top: 1px solid #f1f5f9; }
+.acct-sec-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; flex-wrap: wrap; }
+.acct-sec-label { display: inline-flex; align-items: center; gap: 7px; font-size: 0.88rem; color: #334155; font-weight: 600; }
+
+/* pills (shared with admin pages, redefined here so this component is standalone) */
+.pill { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+.pill.on { background: #dcfce7; color: #15803d; }
+.pill.off { background: #f1f5f9; color: #94a3b8; }
+.pill.block { background: #fee2e2; color: #b91c1c; }
+.pill.flag { background: #fef3c7; color: #b45309; }

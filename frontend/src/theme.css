@@ -1,0 +1,210 @@
+/* ════════════════════════════════════════════════════════════════════════
+   Theme layer — design tokens + dark mode.
+   Light mode keeps every component's existing colours untouched; the
+   [data-theme="dark"] block below remaps the shared surfaces and the
+   dark heading/value text so the whole app reads cleanly in dark mode.
+   ════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --surface-3: #f1f5f9;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --accent: #2563eb;
+}
+
+[data-theme="dark"] {
+  --bg: #0b1220;
+  --surface: #1e293b;
+  --surface-2: #243044;
+  --surface-3: #334155;
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --accent: #3b82f6;
+}
+
+/* Smooth theme transitions on the surfaces (not on transforms/opacity). */
+[data-theme] body,
+.layout, .main-content, .stat-card, .chart-card, .acct-panel, .acct-stat,
+.balance-hero, .util-card, .balance-mini, .adm-card, .fc-card, .modal,
+.au-userlist, .au-detail, .au-card, .au-chart-card, .at-card, .tx-page-card,
+.notif-dropdown, .tdd-drawer, .toast, table.adm-table th, table.adm-table td {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+[data-theme="dark"] body { background: var(--bg); }
+[data-theme="dark"] .main-content { background: var(--bg); color: var(--text); }
+[data-theme="dark"] .layout { background: var(--bg); }
+
+/* Surfaces → dark cards */
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .chart-card,
+[data-theme="dark"] .acct-panel,
+[data-theme="dark"] .balance-hero,
+[data-theme="dark"] .util-card,
+[data-theme="dark"] .balance-mini,
+[data-theme="dark"] .modal,
+[data-theme="dark"] .adm-card,
+[data-theme="dark"] .fc-card,
+[data-theme="dark"] .au-userlist,
+[data-theme="dark"] .au-detail,
+[data-theme="dark"] .au-card,
+[data-theme="dark"] .au-chart-card,
+[data-theme="dark"] .at-card,
+[data-theme="dark"] .tx-page-card,
+[data-theme="dark"] .upload-dropzone,
+[data-theme="dark"] .upload-stats,
+[data-theme="dark"] .notif-dropdown,
+[data-theme="dark"] .notif-bell,
+[data-theme="dark"] .tdd-drawer,
+[data-theme="dark"] .toast,
+[data-theme="dark"] .txe-table-wrap,
+[data-theme="dark"] .cm-metric,
+[data-theme="dark"] .distribution-item {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+/* Secondary (inset) surfaces */
+[data-theme="dark"] .acct-stat,
+[data-theme="dark"] .acct-history li,
+[data-theme="dark"] .kv,
+[data-theme="dark"] .tdd-sev,
+[data-theme="dark"] .tdd-meta pre,
+[data-theme="dark"] .data-table thead,
+[data-theme="dark"] table.adm-table th,
+[data-theme="dark"] .au-users li:hover,
+[data-theme="dark"] .txe-row:hover,
+[data-theme="dark"] .notif-item:hover,
+[data-theme="dark"] .data-table tbody tr:hover,
+[data-theme="dark"] .txe-pager button,
+[data-theme="dark"] .adm-pagination button,
+[data-theme="dark"] .acct-btn,
+[data-theme="dark"] .adm-btn.ghost {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+/* Inputs / selects / textareas */
+[data-theme="dark"] .modal input,
+[data-theme="dark"] .modal select,
+[data-theme="dark"] .modal textarea,
+[data-theme="dark"] .adm-select,
+[data-theme="dark"] .adm-toolbar .adm-search,
+[data-theme="dark"] .txe-search,
+[data-theme="dark"] .txe-select,
+[data-theme="dark"] .txe-amount,
+[data-theme="dark"] .au-search,
+[data-theme="dark"] .at-field select,
+[data-theme="dark"] .at-bulk textarea,
+[data-theme="dark"] .at-rows input,
+[data-theme="dark"] .at-rows select,
+[data-theme="dark"] .tdd-edit select,
+[data-theme="dark"] .tdd-edit input,
+[data-theme="dark"] .tdd-edit textarea {
+  background: var(--surface-2) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder { color: #64748b; }
+
+/* Dark headings / values → light text */
+[data-theme="dark"] .stat-value,
+[data-theme="dark"] .stat-item-value,
+[data-theme="dark"] .stats-title,
+[data-theme="dark"] .section-title,
+[data-theme="dark"] .page-title,
+[data-theme="dark"] .chart-title,
+[data-theme="dark"] .info-title,
+[data-theme="dark"] .empty-state h3,
+[data-theme="dark"] .cm-metric-value,
+[data-theme="dark"] .data-table th,
+[data-theme="dark"] table.adm-table td,
+[data-theme="dark"] .acct-panel h4,
+[data-theme="dark"] .acct-stat-value,
+[data-theme="dark"] .acct-hist-amt,
+[data-theme="dark"] .acct-hist-type,
+[data-theme="dark"] .acct-sec-label,
+[data-theme="dark"] .acct-btn,
+[data-theme="dark"] .adm-btn.ghost,
+[data-theme="dark"] .adm-pagination button,
+[data-theme="dark"] .balance-hero,
+[data-theme="dark"] .balance-hero-value,
+[data-theme="dark"] .balance-hero-sub-value,
+[data-theme="dark"] .mini-value,
+[data-theme="dark"] .util-pct,
+[data-theme="dark"] .modal h3,
+[data-theme="dark"] .modal label,
+[data-theme="dark"] .fc-card h3,
+[data-theme="dark"] .fc-field label,
+[data-theme="dark"] .fc-toggle span,
+[data-theme="dark"] .au-card-value,
+[data-theme="dark"] .au-chart-card h4,
+[data-theme="dark"] .au-detail-head h2,
+[data-theme="dark"] .au-tx-section h4,
+[data-theme="dark"] .au-user-name,
+[data-theme="dark"] .au-search input,
+[data-theme="dark"] .txe-name,
+[data-theme="dark"] .txe-title,
+[data-theme="dark"] .txe-table td,
+[data-theme="dark"] .txe-search input,
+[data-theme="dark"] .username-cell,
+[data-theme="dark"] .notif-header,
+[data-theme="dark"] .notif-item-title,
+[data-theme="dark"] .tdd-header h2,
+[data-theme="dark"] .tdd-amount,
+[data-theme="dark"] .tdd-merchant,
+[data-theme="dark"] .tdd-grid dd,
+[data-theme="dark"] .tdd-desc p,
+[data-theme="dark"] .tdd-edit h3,
+[data-theme="dark"] .upload-text,
+[data-theme="dark"] .at-secondary,
+[data-theme="dark"] .at-hint code {
+  color: var(--text);
+}
+
+/* Section dividers that used very light borders */
+[data-theme="dark"] .balance-hero-sub,
+[data-theme="dark"] .acct-security,
+[data-theme="dark"] table.adm-table td,
+[data-theme="dark"] .acct-summary,
+[data-theme="dark"] .fc-toggle {
+  border-color: var(--border) !important;
+}
+
+/* Table header background */
+[data-theme="dark"] table.adm-table th,
+[data-theme="dark"] .data-table thead { color: var(--text-muted); }
+
+/* Drawer overlay / modal overlay a touch darker */
+[data-theme="dark"] .modal-overlay,
+[data-theme="dark"] .tdd-overlay { background: rgba(0, 0, 0, 0.6); }
+
+/* Scrollbar */
+[data-theme="dark"] ::-webkit-scrollbar-track { background: #1e293b; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #475569; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+/* ── Theme toggle control (in sidebar) ──────────────────────────────────── */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e0e7ff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.15s ease;
+}
+.theme-toggle:hover { background: rgba(255, 255, 255, 0.16); }

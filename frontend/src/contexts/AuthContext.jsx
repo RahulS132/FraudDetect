@@ -30,54 +30,60 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  // Persist a successful auth (token + user) and set the default header.
+  const applyAuth = (data) => {
+    const { access_token, user: userData } = data;
+    setToken(access_token);
+    setUser(userData);
+    localStorage.setItem('token', access_token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+  };
+
   const login = async (email, password) => {
     try {
       const response = await axios.post('/api/auth/login', { email, password });
-      const { access_token, user: userData } = response.data;
-      
-      setToken(access_token);
-      setUser(userData);
-      
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(userData));
-      
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-      
-      return { success: true };
+      if (response.data.access_token) {
+        applyAuth(response.data);
+        return { success: true, authed: true };
+      }
+      // Challenge: requires_2fa or requires_verification.
+      return { success: true, authed: false, challenge: response.data };
     } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Login failed'
-      };
+      return { success: false, error: error.response?.data?.detail || 'Login failed' };
     }
   };
 
   const register = async (email, username, password, fullName) => {
     try {
       const response = await axios.post('/api/auth/register', {
-        email,
-        username,
-        password,
-        full_name: fullName,
-        role: 'user'
+        email, username, password, full_name: fullName, role: 'user',
       });
-      
-      const { access_token, user: userData } = response.data;
-      
-      setToken(access_token);
-      setUser(userData);
-      
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(userData));
-      
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-      
+      // New flow always returns a verification challenge.
+      return { success: true, authed: false, challenge: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.detail || 'Registration failed' };
+    }
+  };
+
+  // Verify an OTP (email verification or login 2FA). On success, logs in.
+  const verifyOtp = async (email, code, purpose) => {
+    const url = purpose === 'login_2fa' ? '/api/auth/verify-2fa' : '/api/auth/verify-email';
+    try {
+      const response = await axios.post(url, { email, code });
+      applyAuth(response.data);
       return { success: true };
     } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?.detail || 'Registration failed'
-      };
+      return { success: false, error: error.response?.data?.detail || 'Verification failed' };
+    }
+  };
+
+  const resendOtp = async (email, purpose) => {
+    try {
+      const response = await axios.post('/api/auth/resend-otp', { email, purpose });
+      return { success: true, devCode: response.data?.dev_code };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.detail || 'Could not resend code' };
     }
   };
 
@@ -99,6 +105,8 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     register,
+    verifyOtp,
+    resendOtp,
     logout,
     isAdmin,
     isAuthenticated: !!token

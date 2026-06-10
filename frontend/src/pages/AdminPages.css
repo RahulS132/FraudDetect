@@ -1,0 +1,79 @@
+/* Shared styles for Transaction Rules, Fraud Config, Audit Log pages */
+.adm-wrap { padding: 0 4px; }
+
+.adm-toolbar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.adm-toolbar .adm-search {
+  display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 10px; padding: 8px 12px; flex: 1; min-width: 200px;
+}
+.adm-toolbar .adm-search input { border: none; flex: 1; font-size: 0.9rem; background: transparent; }
+.adm-select { padding: 9px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; font-size: 0.88rem; }
+
+.adm-btn {
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px;
+  border-radius: 10px; font-weight: 600; font-size: 0.88rem; background: #2563eb; color: #fff;
+}
+.adm-btn:hover { background: #1d4ed8; }
+.adm-btn.ghost { background: #f1f5f9; color: #334155; }
+.adm-btn.ghost:hover { background: #e2e8f0; }
+
+.adm-card { background: #fff; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; }
+
+table.adm-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+table.adm-table th {
+  text-align: left; padding: 12px 14px; background: #f8fafc; color: #64748b;
+  font-weight: 600; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.03em;
+  border-bottom: 1px solid #e2e8f0; white-space: nowrap;
+}
+table.adm-table td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+table.adm-table tr:last-child td { border-bottom: none; }
+table.adm-table tr:hover td { background: #fafbfc; }
+
+.pill { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 0.74rem; font-weight: 600; }
+.pill.block { background: #fee2e2; color: #b91c1c; }
+.pill.flag { background: #fef3c7; color: #b45309; }
+.pill.on { background: #dcfce7; color: #15803d; }
+.pill.off { background: #f1f5f9; color: #94a3b8; }
+.pill.crit { background: #fee2e2; color: #b91c1c; }
+.pill.high { background: #ffedd5; color: #c2410c; }
+.pill.med { background: #fef3c7; color: #b45309; }
+.pill.low { background: #e0f2fe; color: #0369a1; }
+.pill.none { background: #f1f5f9; color: #64748b; }
+
+.adm-row-actions { display: flex; gap: 6px; }
+.icon-btn { padding: 6px; border-radius: 8px; background: #f1f5f9; color: #475569; display: inline-flex; }
+.icon-btn:hover { background: #e2e8f0; }
+.icon-btn.danger:hover { background: #fee2e2; color: #b91c1c; }
+
+.adm-state { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 48px; color: #94a3b8; }
+
+.adm-pagination { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; font-size: 0.84rem; color: #64748b; }
+.adm-pagination button { padding: 6px 12px; border-radius: 8px; background: #f1f5f9; color: #334155; font-weight: 600; }
+.adm-pagination button:disabled { opacity: 0.5; }
+
+/* Fraud config */
+.fc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 800px) { .fc-grid { grid-template-columns: 1fr; } }
+.fc-card { background: #fff; border-radius: 14px; padding: 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.fc-card h3 { font-size: 1rem; margin-bottom: 4px; color: #0f172a; }
+.fc-card p.sub { color: #64748b; font-size: 0.84rem; margin-bottom: 18px; }
+.fc-field { margin-bottom: 18px; }
+.fc-field label { display: flex; justify-content: space-between; font-weight: 600; font-size: 0.88rem; color: #334155; margin-bottom: 8px; }
+.fc-field .fc-val { color: #2563eb; }
+.fc-field input[type=range] { width: 100%; }
+.fc-toggle { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid #f1f5f9; }
+.fc-toggle span { font-size: 0.9rem; color: #334155; font-weight: 500; }
+.switch { position: relative; width: 44px; height: 24px; }
+.switch input { display: none; }
+.switch .track { position: absolute; inset: 0; background: #cbd5e1; border-radius: 999px; transition: 0.2s; }
+.switch .track::before { content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%; background: #fff; top: 3px; left: 3px; transition: 0.2s; }
+.switch input:checked + .track { background: #2563eb; }
+.switch input:checked + .track::before { transform: translateX(20px); }
+
+.empty-rules { text-align: center; padding: 56px 20px; color: #94a3b8; }
+.empty-rules svg { margin-bottom: 12px; opacity: 0.6; }
+.empty-rules h3 { color: #475569; margin-bottom: 6px; }
+
+.kv { font-family: source-code-pro, Menlo, monospace; font-size: 0.78rem; color: #475569; background: #f8fafc; padding: 2px 6px; border-radius: 6px; }

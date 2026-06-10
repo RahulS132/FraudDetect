@@ -2,12 +2,15 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Upload, Shield, LogOut, User, Receipt, PlusSquare, Users,
+  ShieldOff, SlidersHorizontal, ScrollText, Sun, Moon,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import './Sidebar.css';
 
 export const Sidebar = () => {
   const { user, logout, isAdmin } = useAuth();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -64,9 +67,29 @@ export const Sidebar = () => {
               <PlusSquare size={20} />
               <span>Manage Transactions</span>
             </NavLink>
+
+            <NavLink to="/admin/rules" className="sidebar-link">
+              <ShieldOff size={20} />
+              <span>Transaction Rules</span>
+            </NavLink>
+
+            <NavLink to="/admin/fraud-config" className="sidebar-link">
+              <SlidersHorizontal size={20} />
+              <span>Fraud Config</span>
+            </NavLink>
+
+            <NavLink to="/admin/audit-log" className="sidebar-link">
+              <ScrollText size={20} />
+              <span>Audit Log</span>
+            </NavLink>
           </>
         )}
       </nav>
+
+      <button className="theme-toggle" onClick={toggle} title="Toggle theme">
+        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+        <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+      </button>
 
       <button className="sidebar-logout" onClick={handleLogout}>
         <LogOut size={20} />

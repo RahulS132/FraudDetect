@@ -62,7 +62,21 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 0 1rem;
+  /* Let the nav scroll on short screens so the logout/theme buttons below it
+     stay reachable instead of being pushed off-screen. */
+  overflow-y: auto;
+  min-height: 0;
+  margin-bottom: 0.75rem;
 }
+
+/* Slim scrollbar inside the dark sidebar */
+.sidebar-nav::-webkit-scrollbar { width: 6px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.35); }
 
 .sidebar-link {
   display: flex;

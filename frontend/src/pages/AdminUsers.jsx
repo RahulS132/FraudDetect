@@ -11,6 +11,8 @@ import api from '../lib/api';
 import { Sidebar } from '../components/Sidebar';
 import { TopBar } from '../components/TopBar';
 import { TransactionsExplorer } from '../components/TransactionsExplorer';
+import { AdminAccountPanel } from '../components/AdminAccountPanel';
+import { StatusBadge } from '../components/StatusBadge';
 import { useRealtime } from '../contexts/RealtimeContext';
 import { useToast } from '../contexts/ToastContext';
 import './AdminUsers.css';
@@ -140,6 +142,7 @@ export const AdminUsers = () => {
                       <span className="au-user-email">{u.email}</span>
                     </div>
                     <div className="au-user-stats">
+                      <StatusBadge status={u.status} size="sm" />
                       <span>{u.total_transactions} tx</span>
                       {u.fraud_count > 0 && (
                         <span className="au-user-fraud">{u.fraud_count} fraud</span>
@@ -179,6 +182,12 @@ export const AdminUsers = () => {
                     </div>
                   )}
                 </div>
+
+                <AdminAccountPanel
+                  key={selected.user_id}
+                  userId={selected.user_id}
+                  onChange={loadUsers}
+                />
 
                 {analyticsLoading ? (
                   <div className="au-state"><Loader size={22} className="au-spin" /> Loading analytics…</div>

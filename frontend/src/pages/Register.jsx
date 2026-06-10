@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Shield, Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { OtpForm } from '../components/OtpForm';
 import './Auth.css';
 
 export const Register = () => {
@@ -12,6 +13,7 @@ export const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [challenge, setChallenge] = useState(null); // {devCode}
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -32,15 +34,29 @@ export const Register = () => {
     setLoading(true);
 
     const result = await register(email, username, password, fullName);
-    
-    if (result.success) {
+
+    if (result.success && result.challenge) {
+      setChallenge({ devCode: result.challenge.dev_code });
+    } else if (result.success) {
       navigate('/dashboard');
     } else {
       setError(result.error);
     }
-    
+
     setLoading(false);
   };
+
+  if (challenge) {
+    return (
+      <OtpForm
+        email={email}
+        purpose="verify_email"
+        initialDevCode={challenge.devCode}
+        onDone={() => navigate('/dashboard')}
+        onBack={() => setChallenge(null)}
+      />
+    );
+  }
 
   return (
     <div className="auth-container">

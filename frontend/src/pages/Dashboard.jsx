@@ -19,6 +19,7 @@ import {
 } from 'chart.js';
 import { TrendingUp, TrendingDown, Activity, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
+import { BalanceWidgets } from '../components/BalanceWidgets';
 import './Dashboard.css';
 
 ChartJS.register(
@@ -281,6 +282,9 @@ export const Dashboard = () => {
           title="Dashboard"
           subtitle="Overview of your fraud detection statistics"
         />
+
+        {/* ── Balance / credit widgets ───────────────────────────────────── */}
+        <BalanceWidgets />
 
         {/* ── Stat Cards (clickable → filtered Transactions) ─────────────── */}
         <div className="stats-grid">

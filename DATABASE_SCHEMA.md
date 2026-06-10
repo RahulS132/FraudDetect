@@ -408,5 +408,120 @@ users_collection.insert_one(admin_user)
 
 ---
 
-**Schema Version:** 1.0  
-**Last Updated:** 2024-01-15
+## Expansion collections & fields
+
+All changes below are **additive and backward-compatible** — existing documents
+keep working; new fields default sensibly when absent.
+
+### `users` — added fields
+
+```json
+{
+  "status": "active",            // active | suspended | blocked | under_review
+  "email_verified": true,        // false until OTP confirmed (missing = legacy = verified)
+  "force_2fa": false,            // admin-enforced login 2FA
+  "account": {
+    "credit_limit": 5000.0,      // credit ceiling
+    "current_balance": 0.0,      // spendable cash the user has
+    "credit_used": 0.0,          // drawn credit (available_credit = limit - used)
+    "total_spending": 0.0,
+    "total_deposits": 0.0,
+    "total_transactions": 0,
+    "is_frozen": false,
+    "credit_suspended": false,
+    "currency": "USD",
+    "updated_at": "ISODate"
+  },
+  "block": {                     // present once blocked (also holds last block)
+    "reason_code": "fraud",      // fraud | suspicious_activity | manual_review | account_violation | custom
+    "reason": "...", "notes": "...",
+    "blocked_by": "...", "blocked_by_email": "...", "blocked_at": "ISODate",
+    "unblocked_by": "...", "unblocked_at": "ISODate", "unblock_notes": "..."
+  }
+}
+```
+
+Derived (not stored): `available_credit = credit_limit − credit_used` (0 when
+suspended); `spending_power = current_balance + available_credit`;
+`credit_utilization = credit_used / credit_limit × 100`.
+**New index:** `status`.
+
+### `transactions` — added fields
+`balance_before`, `balance_after` (cash balance around the spend), `merchant`,
+`country`, `card_type`, `fraud_score`, `auto_blocked`, `flagged`, plus the
+earlier `category`, `tag`, `description`, `creation_source`, `created_by`,
+`transaction_time`.
+
+### `transaction_rules` (new)
+```json
+{ "_id": "ObjectId", "name": "Block high-risk merchants",
+  "rule_type": "merchant",      // merchant|category|amount_range|country|card_type|user
+  "action": "block",            // block | flag
+  "enabled": true,
+  "config": { "values": ["amazon"] },  // or {min,max} for amount_range, {user_id} for user
+  "description": "...", "trigger_count": 0,
+  "created_by": "...", "created_at": "ISODate", "updated_at": "ISODate" }
+```
+**Indexes:** `enabled`, `rule_type`, `created_at`.
+
+### `fraud_config` (new — singleton `_id: "singleton"`)
+```json
+{ "_id": "singleton", "auto_block_threshold": 95.0, "auto_flag_threshold": 80.0,
+  "flag_account_on_block": true, "notify_admins": true,
+  "updated_by": "...", "updated_at": "ISODate" }
+```
+
+### `fraud_events` (new)
+```json
+{ "_id": "ObjectId", "transaction_id": "...", "user_id": "...", "username": "...",
+  "fraud_score": 97.0, "severity": "critical", "threshold": 95.0,
+  "action": "blocked",          // blocked | flagged
+  "reason": "...", "created_at": "ISODate" }
+```
+**Indexes:** `created_at`, `(user_id, created_at)`.
+
+### `account_events` (new — balance + credit-limit history)
+```json
+{ "_id": "ObjectId", "user_id": "...",
+  "type": "add_funds",          // add_funds|remove_funds|set_balance|credit_limit_change|credit_suspend|freeze|unfreeze|reset|spend
+  "amount": 100.0, "before": {}, "after": {},
+  "actor_id": "...", "actor_email": "...", "note": "...", "created_at": "ISODate" }
+```
+**Indexes:** `(user_id, created_at)`, `type`.
+
+### `user_status_events` (new — block/unblock/status history)
+```json
+{ "_id": "ObjectId", "user_id": "...", "action": "block",
+  "reason_code": "fraud", "reason": "...", "notes": "...",
+  "actor_id": "...", "actor_email": "...", "created_at": "ISODate" }
+```
+**Index:** `(user_id, created_at)`.
+
+### `audit_logs` (extended — every privileged admin action, with before/after)
+```json
+{ "_id": "ObjectId", "action": "balance_add_funds", "actor_id": "...",
+  "actor_email": "...", "target_user_id": "...",
+  "details": { "before": {}, "after": {}, "note": "..." }, "created_at": "ISODate" }
+```
+**Indexes:** `created_at`, `actor_id`, `target_user_id`, `action`.
+
+### `email_verifications` (new — OTP, codes stored hashed)
+```json
+{ "_id": "ObjectId", "email": "...", "purpose": "verify_email",  // verify_email | login_2fa
+  "code_hash": "<sha256>", "attempts": 0, "used": false,
+  "created_at": "ISODate", "expires_at": "ISODate" }
+```
+**Indexes:** `email`, TTL on `expires_at` (auto-expiry of old codes).
+
+### `login_attempts` (new — login history)
+```json
+{ "_id": "ObjectId", "email": "...", "user_id": "...", "success": true,
+  "reason": "password", "stage": "password",  // password | 2fa | verify_email
+  "ip": "...", "user_agent": "...", "created_at": "ISODate" }
+```
+**Indexes:** `(user_id, created_at)`, `email`.
+
+---
+
+**Schema Version:** 2.0
+**Last Updated:** 2026-06-10

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { RealtimeProvider } from './contexts/RealtimeContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -12,13 +13,17 @@ import { AdminAnalytics } from './pages/AdminAnalytics';
 import { Transactions } from './pages/Transactions';
 import { AdminTransactions } from './pages/AdminTransactions';
 import { AdminUsers } from './pages/AdminUsers';
+import { TransactionRules } from './pages/TransactionRules';
+import { FraudConfig } from './pages/FraudConfig';
+import { AuditLog } from './pages/AuditLog';
 
 function App() {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <RealtimeProvider>
-          <Router>
+    <ThemeProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <RealtimeProvider>
+            <Router>
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
@@ -77,13 +82,41 @@ function App() {
                 }
               />
 
+              <Route
+                path="/admin/rules"
+                element={
+                  <ProtectedRoute adminOnly={true}>
+                    <TransactionRules />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/fraud-config"
+                element={
+                  <ProtectedRoute adminOnly={true}>
+                    <FraudConfig />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/audit-log"
+                element={
+                  <ProtectedRoute adminOnly={true}>
+                    <AuditLog />
+                  </ProtectedRoute>
+                }
+              />
+
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
-          </Router>
-        </RealtimeProvider>
-      </AuthProvider>
-    </ToastProvider>
+            </Router>
+          </RealtimeProvider>
+        </AuthProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 

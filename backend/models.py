@@ -178,6 +178,9 @@ class ManualTransactionCreate(BaseModel):
     category: Optional[str] = Field(None, max_length=100)
     tag: Optional[TransactionTag] = None
     description: Optional[str] = Field(None, max_length=1000)
+    merchant: Optional[str] = Field(None, max_length=200)
+    country: Optional[str] = Field(None, max_length=100)
+    card_type: Optional[str] = Field(None, max_length=50)
     transaction_time: Optional[datetime] = Field(
         None, description="Business date/time of the transaction (defaults to now)"
     )
@@ -293,6 +296,13 @@ class AdminUserSummary(BaseModel):
     total_transactions: int = 0
     fraud_count: int = 0
     fraud_rate: float = 0.0
+    # account / status (second expansion)
+    status: str = "active"
+    credit_limit: float = 5000.0
+    current_balance: float = 0.0
+    available_credit: float = 5000.0
+    credit_utilization: float = 0.0
+    is_frozen: bool = False
 
 
 class UserAnalytics(BaseModel):
@@ -313,3 +323,261 @@ class UserAnalytics(BaseModel):
     risk_level: str                   # low / medium / high / critical
     spending_by_tag: List[Dict[str, Any]] = []
     transactions_over_time: Dict[str, Any] = {}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  SECOND EXPANSION — account/balance, blocking, transaction rules, fraud config
+# ════════════════════════════════════════════════════════════════════════════
+
+# ── Account status & balance ─────────────────────────────────────────────────
+class AccountStatus(str, Enum):
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+    BLOCKED = "blocked"
+    UNDER_REVIEW = "under_review"
+
+
+# Default account values applied to users that predate the balance system.
+DEFAULT_CREDIT_LIMIT = 5000.0
+
+
+class AccountSummary(BaseModel):
+    """A user's balance / credit snapshot.
+
+    Semantics (credit-card model):
+      current_balance  = credit used / amount owed (0 = nothing owed)
+      available_credit = credit_limit - current_balance  (0 when credit_suspended)
+    """
+    user_id: str
+    username: Optional[str] = None
+    email: Optional[str] = None
+    status: str = AccountStatus.ACTIVE.value
+    credit_limit: float = DEFAULT_CREDIT_LIMIT
+    current_balance: float = 0.0             # spendable money the user has
+    credit_used: float = 0.0                 # credit line drawn
+    available_credit: float = DEFAULT_CREDIT_LIMIT
+    spending_power: float = DEFAULT_CREDIT_LIMIT  # balance + available credit
+    credit_utilization: float = 0.0          # percent 0–100
+    total_spending: float = 0.0
+    total_deposits: float = 0.0
+    total_transactions: int = 0
+    is_frozen: bool = False
+    credit_suspended: bool = False
+    currency: str = "USD"
+    updated_at: Optional[datetime] = None
+    force_2fa: bool = False
+    email_verified: bool = True
+
+
+class AmountRequest(BaseModel):
+    amount: float = Field(..., gt=0, le=1_000_000_000)
+    note: Optional[str] = Field(None, max_length=500)
+
+
+class SetBalanceRequest(BaseModel):
+    balance: float = Field(..., ge=0, le=1_000_000_000)
+    note: Optional[str] = Field(None, max_length=500)
+
+
+class CreditLimitRequest(BaseModel):
+    """Either set an absolute credit_limit, or apply a signed delta."""
+    credit_limit: Optional[float] = Field(None, ge=0, le=1_000_000_000)
+    delta: Optional[float] = Field(None, ge=-1_000_000_000, le=1_000_000_000)
+    note: Optional[str] = Field(None, max_length=500)
+
+    @validator("delta")
+    def one_of(cls, v, values):
+        if v is None and values.get("credit_limit") is None:
+            raise ValueError("Provide either credit_limit or delta")
+        return v
+
+
+class ToggleRequest(BaseModel):
+    enabled: bool
+    note: Optional[str] = Field(None, max_length=500)
+
+
+class AccountEvent(BaseModel):
+    id: str
+    user_id: str
+    type: str
+    amount: Optional[float] = None
+    before: Optional[Dict[str, Any]] = None
+    after: Optional[Dict[str, Any]] = None
+    actor_id: Optional[str] = None
+    actor_email: Optional[str] = None
+    note: Optional[str] = None
+    created_at: datetime
+
+
+class AccountDetailResponse(BaseModel):
+    account: AccountSummary
+    history: List[AccountEvent] = []
+
+
+# ── User blocking / status ───────────────────────────────────────────────────
+class BlockReasonCode(str, Enum):
+    FRAUD = "fraud"
+    SUSPICIOUS_ACTIVITY = "suspicious_activity"
+    MANUAL_REVIEW = "manual_review"
+    ACCOUNT_VIOLATION = "account_violation"
+    CUSTOM = "custom"
+
+
+class BlockRequest(BaseModel):
+    reason_code: BlockReasonCode
+    reason: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class UnblockRequest(BaseModel):
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class StatusRequest(BaseModel):
+    status: AccountStatus
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class StatusEvent(BaseModel):
+    id: str
+    user_id: str
+    action: str
+    reason_code: Optional[str] = None
+    reason: Optional[str] = None
+    notes: Optional[str] = None
+    actor_id: Optional[str] = None
+    actor_email: Optional[str] = None
+    created_at: datetime
+
+
+# ── Transaction blocking rules ───────────────────────────────────────────────
+class RuleType(str, Enum):
+    MERCHANT = "merchant"
+    CATEGORY = "category"
+    AMOUNT_RANGE = "amount_range"
+    COUNTRY = "country"
+    CARD_TYPE = "card_type"
+    USER = "user"
+
+
+class RuleAction(str, Enum):
+    BLOCK = "block"
+    FLAG = "flag"
+
+
+class TransactionRuleCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    rule_type: RuleType
+    action: RuleAction = RuleAction.BLOCK
+    enabled: bool = True
+    # Flexible config; validated semantically per rule_type in the rules engine.
+    # merchant/category/country/card_type → {"value": "..."} or {"values": [...]}
+    # amount_range → {"min": float?, "max": float?}
+    # user → {"user_id": "..."}
+    config: Dict[str, Any] = {}
+    description: Optional[str] = Field(None, max_length=500)
+
+
+class TransactionRuleUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    rule_type: Optional[RuleType] = None
+    action: Optional[RuleAction] = None
+    enabled: Optional[bool] = None
+    config: Optional[Dict[str, Any]] = None
+    description: Optional[str] = Field(None, max_length=500)
+
+
+class TransactionRuleResponse(BaseModel):
+    id: str
+    name: str
+    rule_type: str
+    action: str
+    enabled: bool
+    config: Dict[str, Any] = {}
+    description: Optional[str] = None
+    trigger_count: int = 0
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+# ── Fraud auto-block config ──────────────────────────────────────────────────
+class FraudConfigResponse(BaseModel):
+    auto_block_threshold: float = 95.0     # 0–100 fraud score
+    auto_flag_threshold: float = 80.0
+    flag_account_on_block: bool = True
+    notify_admins: bool = True
+    updated_by: Optional[str] = None
+    updated_at: Optional[datetime] = None
+
+
+class FraudConfigUpdate(BaseModel):
+    auto_block_threshold: Optional[float] = Field(None, ge=0, le=100)
+    auto_flag_threshold: Optional[float] = Field(None, ge=0, le=100)
+    flag_account_on_block: Optional[bool] = None
+    notify_admins: Optional[bool] = None
+
+
+class FraudEventResponse(BaseModel):
+    id: str
+    transaction_id: Optional[str] = None
+    user_id: Optional[str] = None
+    username: Optional[str] = None
+    fraud_score: float
+    severity: str
+    threshold: Optional[float] = None
+    action: str                # blocked | flagged
+    reason: Optional[str] = None
+    created_at: datetime
+
+
+# ── Audit log (searchable) ───────────────────────────────────────────────────
+class AuditLogResponse(BaseModel):
+    id: str
+    action: str
+    actor_id: Optional[str] = None
+    actor_email: Optional[str] = None
+    target_user_id: Optional[str] = None
+    target_username: Optional[str] = None
+    details: Dict[str, Any] = {}
+    created_at: datetime
+
+
+class AuditLogListResponse(BaseModel):
+    items: List[AuditLogResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+# ── Email verification / 2FA (Phase 2) ───────────────────────────────────────
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(..., min_length=4, max_length=10)
+
+
+class ResendOtpRequest(BaseModel):
+    email: EmailStr
+    purpose: str = Field("verify_email", pattern="^(verify_email|login_2fa)$")
+
+
+class Verify2FARequest(BaseModel):
+    email: EmailStr
+    code: str = Field(..., min_length=4, max_length=10)
+
+
+class Toggle2FARequest(BaseModel):
+    enabled: bool
+
+
+class LoginAttemptResponse(BaseModel):
+    id: str
+    email: Optional[str] = None
+    success: bool
+    reason: Optional[str] = None
+    stage: Optional[str] = None
+    ip: Optional[str] = None
+    user_agent: Optional[str] = None
+    created_at: datetime
