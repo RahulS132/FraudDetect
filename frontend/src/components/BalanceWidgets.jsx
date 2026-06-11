@@ -30,7 +30,9 @@ export const BalanceWidgets = () => {
 
   if (!acct) return null;
 
-  const util = Math.min(100, Math.max(0, acct.credit_utilization || 0));
+  const hasLimit = acct.has_credit_limit !== false;
+  const util = Math.max(0, acct.credit_utilization || 0);   // uncapped %
+  const barWidth = Math.min(100, util);                     // bar caps at 100%
   const utilClass = util < 50 ? 'low' : util < 80 ? 'med' : 'high';
 
   return (
@@ -50,7 +52,7 @@ export const BalanceWidgets = () => {
           </div>
           <div>
             <span className="balance-hero-sub-label">Available Credit</span>
-            <span className="balance-hero-sub-value">{fmtMoney(acct.available_credit)}</span>
+            <span className="balance-hero-sub-value">{hasLimit ? fmtMoney(acct.available_credit) : 'No limit'}</span>
           </div>
         </div>
         {acct.is_frozen && (
@@ -62,15 +64,26 @@ export const BalanceWidgets = () => {
       </div>
 
       <div className="util-card">
-        <div className="util-title">Credit Utilization</div>
-        <div className="util-pct">{util.toFixed(1)}%</div>
-        <div className="util-bar">
-          <div className={`util-fill ${utilClass}`} style={{ width: `${util}%` }} />
-        </div>
-        <div className="util-meta">
-          <span>{fmtMoney(acct.current_balance)} used</span>
-          <span>{fmtMoney(acct.available_credit)} left</span>
-        </div>
+        <div className="util-title">Credit Utilization · this month</div>
+        {hasLimit ? (
+          <>
+            <div className="util-pct">{util.toFixed(1)}%{util > 100 && <span className="util-over"> over limit</span>}</div>
+            <div className="util-bar">
+              <div className={`util-fill ${utilClass}`} style={{ width: `${barWidth}%` }} />
+            </div>
+            <div className="util-meta">
+              <span>{fmtMoney(acct.monthly_spend)} this month</span>
+              <span>of {fmtMoney(acct.credit_limit)} limit</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="util-pct" style={{ fontSize: '1.1rem' }}>No limit set</div>
+            <div className="util-meta">
+              <span>{fmtMoney(acct.monthly_spend)} spent this month</span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="balance-mini">

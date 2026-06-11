@@ -69,6 +69,7 @@
 .util-fill.high { background: #ef4444; }
 .util-meta { display: flex; justify-content: space-between; font-size: 0.8rem; color: #64748b; }
 .util-pct { font-size: 1.5rem; font-weight: 700; color: #0f172a; }
+.util-over { font-size: 0.72rem; font-weight: 600; color: #ef4444; margin-left: 6px; }
 
 .balance-frozen-note {
   display: inline-flex; align-items: center; gap: 6px;

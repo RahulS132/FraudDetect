@@ -131,19 +131,21 @@ export const AdminAccountPanel = ({ userId, onChange }) => {
         </div>
         <div className="acct-stat">
           <div className="acct-stat-label">Credit Limit</div>
-          <div className="acct-stat-value">{fmtMoney(acct.credit_limit)}</div>
+          <div className="acct-stat-value">{acct.has_credit_limit === false ? 'No limit' : fmtMoney(acct.credit_limit)}</div>
         </div>
         <div className="acct-stat">
           <div className="acct-stat-label">Available Credit</div>
-          <div className="acct-stat-value">{fmtMoney(acct.available_credit)}</div>
+          <div className="acct-stat-value">{acct.has_credit_limit === false ? 'Unlimited' : fmtMoney(acct.available_credit)}</div>
         </div>
         <div className="acct-stat">
           <div className="acct-stat-label">Spending Power</div>
-          <div className="acct-stat-value">{fmtMoney(acct.spending_power)}</div>
+          <div className="acct-stat-value">{acct.has_credit_limit === false ? 'Unlimited' : fmtMoney(acct.spending_power)}</div>
         </div>
         <div className="acct-stat">
-          <div className="acct-stat-label">Utilization</div>
-          <div className="acct-stat-value">{(acct.credit_utilization || 0).toFixed(1)}%</div>
+          <div className="acct-stat-label">Utilization (this month)</div>
+          <div className="acct-stat-value">
+            {acct.has_credit_limit === false ? '—' : `${(acct.credit_utilization || 0).toFixed(1)}%`}
+          </div>
         </div>
         <div className="acct-stat">
           <div className="acct-stat-label">Total Spending</div>

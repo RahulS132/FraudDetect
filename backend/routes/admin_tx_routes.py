@@ -96,6 +96,8 @@ async def list_users(
         stats_map = {
             r["_id"]: r for r in detection_results_collection.aggregate(stats_pipeline)
         }
+        # This month's spend per user (one aggregation) → monthly utilization.
+        spend_map = account_service.monthly_spend_map()
 
         out: List[AdminUserSummary] = []
         for u in users:
@@ -103,7 +105,7 @@ async def list_users(
             s = stats_map.get(uid, {})
             total = int(s.get("total", 0))
             fraud = int(s.get("fraud", 0))
-            acct = account_service.compute_summary(u)
+            acct = account_service.compute_summary(u, spend_map.get(uid, 0.0))
             out.append(
                 AdminUserSummary(
                     user_id=uid,
@@ -158,7 +160,7 @@ async def get_user_summary(
         )
         total = int(agg[0]["total"]) if agg else 0
         fraud = int(agg[0]["fraud"]) if agg else 0
-        acct = account_service.compute_summary(u)
+        acct = account_service.compute_summary(u, account_service.monthly_spend(user_id))
         return AdminUserSummary(
             user_id=user_id,
             username=u.get("username", ""),
@@ -400,6 +402,7 @@ async def bulk_create_transactions(
     def _process() -> Dict[str, Any]:
         acct = account_service.compute_summary(target_user)
         credit_limit = acct["credit_limit"]
+        has_limit = acct["has_credit_limit"]         # False → unlimited credit
         running_balance = acct["current_balance"]   # spendable cash
         running_credit_used = acct["credit_used"]
         frozen = acct["is_frozen"]
@@ -469,7 +472,8 @@ async def bulk_create_transactions(
                         errors.append({"index": idx, "error": "Account balance is frozen", "kind": "balance"})
                         rejections.append({"index": idx, "reason": "frozen", "type": "balance_reject"})
                         continue
-                    if amt > spending_power():
+                    # No credit limit applied → unlimited credit; skip the ceiling check.
+                    if has_limit and amt > spending_power():
                         msg = (f"Transaction ${amt:,.2f} exceeds available funds "
                                f"${spending_power():,.2f} (balance ${running_balance:,.2f} + credit ${avail_credit():,.2f})")
                         errors.append({"index": idx, "error": msg, "kind": "balance"})

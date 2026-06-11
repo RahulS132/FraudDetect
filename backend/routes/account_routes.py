@@ -58,7 +58,7 @@ async def my_account(current_user: dict = Depends(get_current_user)):
         user = users_collection.find_one({"_id": ObjectId(current_user["id"])})
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-        return account_service.compute_summary(user)
+        return account_service.account_view(user)
     return await run_in_threadpool(_work)
 
 
@@ -81,7 +81,7 @@ async def admin_get_account(user_id: str, current_admin: dict = Depends(get_curr
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         return {
-            "account": account_service.compute_summary(user),
+            "account": account_service.account_view(user),
             "history": account_service.get_history(user_id, 100),
         }
     return await run_in_threadpool(_work)

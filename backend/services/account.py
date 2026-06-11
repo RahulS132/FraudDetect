@@ -220,7 +220,7 @@ def add_funds(user_id: str, amount: float, actor: Dict[str, Any], note: Optional
     _record_event(user_id, "add_funds", before, after, actor.get("id"), actor.get("email"), amount, note)
     audit.record("balance_add_funds", actor.get("id"), actor.get("email"), user_id,
                  {"amount": amount, "before": before, "after": after, "note": note})
-    return compute_summary(users_collection.find_one({"_id": user["_id"]}))
+    return account_view(users_collection.find_one({"_id": user["_id"]}))
 
 
 def remove_funds(user_id: str, amount: float, actor: Dict[str, Any], note: Optional[str] = None) -> Dict[str, Any]:
@@ -234,7 +234,7 @@ def remove_funds(user_id: str, amount: float, actor: Dict[str, Any], note: Optio
     _record_event(user_id, "remove_funds", before, after, actor.get("id"), actor.get("email"), amount, note)
     audit.record("balance_remove_funds", actor.get("id"), actor.get("email"), user_id,
                  {"amount": amount, "before": before, "after": after, "note": note})
-    return compute_summary(users_collection.find_one({"_id": user["_id"]}))
+    return account_view(users_collection.find_one({"_id": user["_id"]}))
 
 
 def set_balance(user_id: str, balance: float, actor: Dict[str, Any], note: Optional[str] = None) -> Dict[str, Any]:
@@ -247,7 +247,7 @@ def set_balance(user_id: str, balance: float, actor: Dict[str, Any], note: Optio
     _record_event(user_id, "set_balance", before, after, actor.get("id"), actor.get("email"), balance, note)
     audit.record("balance_set", actor.get("id"), actor.get("email"), user_id,
                  {"before": before, "after": after, "note": note})
-    return compute_summary(users_collection.find_one({"_id": user["_id"]}))
+    return account_view(users_collection.find_one({"_id": user["_id"]}))
 
 
 def set_credit_limit(user_id: str, *, credit_limit: Optional[float], delta: Optional[float],
@@ -265,7 +265,7 @@ def set_credit_limit(user_id: str, *, credit_limit: Optional[float], delta: Opti
     _record_event(user_id, "credit_limit_change", before, after, actor.get("id"), actor.get("email"), None, note)
     audit.record("credit_limit_change", actor.get("id"), actor.get("email"), user_id,
                  {"before": before, "after": after, "note": note})
-    return compute_summary(users_collection.find_one({"_id": user["_id"]}))
+    return account_view(users_collection.find_one({"_id": user["_id"]}))
 
 
 def set_credit_suspended(user_id: str, suspended: bool, actor: Dict[str, Any], note: Optional[str] = None) -> Dict[str, Any]:
@@ -279,7 +279,7 @@ def set_credit_suspended(user_id: str, suspended: bool, actor: Dict[str, Any], n
     _record_event(user_id, ev, before, after, actor.get("id"), actor.get("email"), None, note)
     audit.record(ev, actor.get("id"), actor.get("email"), user_id,
                  {"before": before, "after": after, "note": note})
-    return compute_summary(users_collection.find_one({"_id": user["_id"]}))
+    return account_view(users_collection.find_one({"_id": user["_id"]}))
 
 
 def set_frozen(user_id: str, frozen: bool, actor: Dict[str, Any], note: Optional[str] = None) -> Dict[str, Any]:
@@ -293,7 +293,7 @@ def set_frozen(user_id: str, frozen: bool, actor: Dict[str, Any], note: Optional
     _record_event(user_id, ev, before, after, actor.get("id"), actor.get("email"), None, note)
     audit.record("balance_" + ev, actor.get("id"), actor.get("email"), user_id,
                  {"before": before, "after": after, "note": note})
-    return compute_summary(users_collection.find_one({"_id": user["_id"]}))
+    return account_view(users_collection.find_one({"_id": user["_id"]}))
 
 
 def reset_balance(user_id: str, actor: Dict[str, Any], note: Optional[str] = None) -> Dict[str, Any]:
@@ -308,7 +308,7 @@ def reset_balance(user_id: str, actor: Dict[str, Any], note: Optional[str] = Non
     _record_event(user_id, "reset", before, after, actor.get("id"), actor.get("email"), None, note)
     audit.record("balance_reset", actor.get("id"), actor.get("email"), user_id,
                  {"before": before, "after": after, "note": note})
-    return compute_summary(users_collection.find_one({"_id": user["_id"]}))
+    return account_view(users_collection.find_one({"_id": user["_id"]}))
 
 
 # ── spend application (used by transaction creation pipeline) ─────────────────
@@ -330,6 +330,9 @@ def check_can_spend(user: Dict[str, Any], amount: float) -> Tuple[bool, str, flo
     if bool(a.get("is_frozen", False)):
         return False, "Account balance is frozen", 0.0
     s = compute_summary(user)
+    # No credit limit applied → unlimited credit; only a freeze can block.
+    if not s["has_credit_limit"]:
+        return True, "", float("inf")
     power = s["spending_power"]
     if amount > power:
         return False, (

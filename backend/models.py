@@ -353,11 +353,13 @@ class AccountSummary(BaseModel):
     email: Optional[str] = None
     status: str = AccountStatus.ACTIVE.value
     credit_limit: float = DEFAULT_CREDIT_LIMIT
+    has_credit_limit: bool = True            # False when credit_limit == 0 (no limit)
     current_balance: float = 0.0             # spendable money the user has
     credit_used: float = 0.0                 # credit line drawn
     available_credit: float = DEFAULT_CREDIT_LIMIT
     spending_power: float = DEFAULT_CREDIT_LIMIT  # balance + available credit
-    credit_utilization: float = 0.0          # percent 0–100
+    credit_utilization: float = 0.0          # this month's % of limit (uncapped)
+    monthly_spend: float = 0.0               # this calendar month's approved spend
     total_spending: float = 0.0
     total_deposits: float = 0.0
     total_transactions: int = 0
