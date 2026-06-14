@@ -10,11 +10,14 @@
 
 # Virtual env
 .venv/
+/backend/.venv/
 **/.venv/
 **/venv/
 
 # Python
 __pycache__/
+/backend/__pycache__/
+*.py[cod]
 
 
 # One-off maintenance / migration scripts
