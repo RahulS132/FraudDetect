@@ -16,8 +16,6 @@
 # Python
 __pycache__/
 
-# Data files
-*.csv
 
 # One-off maintenance / migration scripts
 /backend/backfill.py
