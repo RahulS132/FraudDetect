@@ -14,6 +14,11 @@
 **/.venv/
 **/venv/
 
+# Node dependencies and generated caches
+node_modules/
+**/node_modules/
+**/.vite/
+
 # Python
 __pycache__/
 /backend/__pycache__/

@@ -45,6 +45,7 @@ git clone https://github.com/RahulS132/FraudDetect.git
 cd FraudDetect
 
 # Python — pyenv reads .python-version automatically
+# Windows / pyenv-win users: if `pyenv update` fails in PowerShell, use the already-installed Python 3.13.1 and continue with the venv step.
 pyenv install 3.13.1
 python -m venv .venv
 source .venv/bin/activate                          # Windows: .venv\Scripts\activate
@@ -89,6 +90,7 @@ npm run dev
 ### Troubleshooting
 
 - **`pyenv: command not found`** — finish pyenv's shell-setup step (add the snippet to `~/.zshrc` or `~/.bashrc`), then open a new terminal.
+- **`pyenv-install: definition not found: 3.13.1`** — on Windows, this usually means pyenv-win is stale or its updater is unhappy in PowerShell (`htmlfile: This command is not supported`). Open Command Prompt and retry `pyenv update`, or skip pyenv entirely if `python --version` already reports 3.13.1 inside your venv.
 - **`python --version` shows the wrong version** — confirm `.python-version` exists in the project root, then run `pyenv rehash`.
 - **`nvm: command not found`** — same idea; source nvm in your shell rc file.
 - **`npm ci` complains about engines** — you're not on Node 20.x. Run `nvm use 20.18.0` from `frontend/`.
