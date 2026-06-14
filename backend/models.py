@@ -546,6 +546,16 @@ class FraudConfigUpdate(BaseModel):
     notify_admins: Optional[bool] = None
 
 
+class ReviewDecision(str, Enum):
+    APPROVE = "approve"   # mark legitimate (un-flag, post to balance if needed)
+    DENY = "deny"         # confirm fraud (block, reverse balance if posted)
+
+
+class ReviewRequest(BaseModel):
+    decision: ReviewDecision
+    note: Optional[str] = Field(None, max_length=500)
+
+
 class FraudEventResponse(BaseModel):
     id: str
     transaction_id: Optional[str] = None

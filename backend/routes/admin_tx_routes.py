@@ -24,6 +24,7 @@ from models import (
     BulkCreateResult,
     AdminUserSummary,
     UserAnalytics,
+    ReviewRequest,
     is_credit_txn,
 )
 from database import (
@@ -705,6 +706,92 @@ async def bulk_create_transactions(
         errors=outcome["errors"],
         transaction_ids=outcome["ids"],
     )
+
+
+# ── fraud review (approve / deny a flagged transaction) ──────────────────────
+
+@router.patch("/transactions/{txn_id}/review")
+async def review_transaction(
+    txn_id: str,
+    body: ReviewRequest,
+    current_admin: dict = Depends(get_current_admin),
+):
+    """Admin resolves a flagged transaction.
+
+    approve → marks it legitimate; if it was blocked (never posted), the spend is
+              applied to the account now.
+    deny    → confirms it as fraud and blocks it; if it had already posted, the
+              spend is reversed off the balance.
+    """
+    oid = _valid_object_id(txn_id)
+    decision = body.decision.value
+
+    def _work() -> Dict[str, Any]:
+        txn = transactions_collection.find_one({"_id": oid})
+        if not txn:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        user_id = txn.get("user_id")
+        amount = float(txn.get("Amount", 0) or 0)
+        direction = txn.get("direction", "debit")
+        # A debit "posted" to the balance iff it was approved and not blocked.
+        was_posted = (direction == "debit" and bool(txn.get("is_approved"))
+                      and not bool(txn.get("auto_blocked")) and not bool(txn.get("is_fraud")))
+        now = datetime.utcnow()
+
+        if decision == "approve":
+            if direction == "debit" and not was_posted:
+                try:
+                    account_service.post_debit(user_id, amount)
+                except Exception as e:
+                    print(f"[review] post_debit failed: {e}")
+            new_fields = {
+                "is_fraud": False, "is_approved": True, "auto_blocked": False,
+                "flagged": False, "severity": "none", "actual_class": 0,
+            }
+        else:  # deny
+            if was_posted:
+                try:
+                    account_service.reverse_debit(user_id, amount)
+                except Exception as e:
+                    print(f"[review] reverse_debit failed: {e}")
+            new_fields = {
+                "is_fraud": True, "is_approved": False, "auto_blocked": True,
+                "flagged": True, "actual_class": 1,
+                "severity": txn.get("severity") if txn.get("severity") not in (None, "none") else "high",
+            }
+
+        new_fields.update({
+            "reviewed_by": current_admin.get("id"),
+            "reviewed_by_email": current_admin.get("email"),
+            "reviewed_at": now,
+            "review_decision": decision,
+            "review_note": body.note,
+        })
+        transactions_collection.update_one({"_id": oid}, {"$set": new_fields})
+        detection_results_collection.update_one(
+            {"transaction_id": str(oid)},
+            {"$set": {"is_fraud": new_fields["is_fraud"], "is_approved": new_fields["is_approved"],
+                      "severity": new_fields["severity"]}},
+        )
+        audit_logs_collection.insert_one({
+            "action": f"transaction_{decision}d",
+            "actor_id": current_admin.get("id"), "actor_email": current_admin.get("email"),
+            "target_user_id": user_id,
+            "details": {"transaction_id": str(oid), "amount": amount,
+                        "decision": decision, "note": body.note, "reversed_or_posted": True},
+            "created_at": now,
+        })
+        return {"success": True, "decision": decision, "transaction_id": str(oid),
+                "is_fraud": new_fields["is_fraud"], "is_approved": new_fields["is_approved"],
+                "user_id": user_id}
+
+    result = await run_in_threadpool(_work)
+
+    # Live refresh for the affected user and all admins.
+    if result.get("user_id"):
+        await broker.publish_to_user(result["user_id"], "transactions_updated", {"reason": "review"})
+    await broker.publish_to_admins("transactions_updated", {"reason": "review", "user_id": result.get("user_id")})
+    return result
 
 
 # ── audit log ────────────────────────────────────────────────────────────────

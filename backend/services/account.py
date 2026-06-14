@@ -397,6 +397,41 @@ def commit_batch(user_id: str, *, final_balance: float, final_credit_used: float
     return {"balance_before": bal_before, "balance_after": bal_after}
 
 
+def post_debit(user_id: str, amount: float) -> Dict[str, float]:
+    """Post a debit to the balance (cash first, then credit) — used when an
+    admin APPROVES a previously-blocked transaction so it now affects the card."""
+    user = get_user_or_raise(user_id)
+    a = _acct(user)
+    bal_before = round(float(a.get("current_balance", 0.0)), 2)
+    from_bal = min(bal_before, amount)
+    a["current_balance"] = round(bal_before - from_bal, 2)
+    a["credit_used"] = round(float(a.get("credit_used", 0.0)) + (amount - from_bal), 2)
+    a["total_spending"] = round(float(a.get("total_spending", 0.0)) + amount, 2)
+    bal_after = a["current_balance"]
+    _persist(user["_id"], a)
+    _record_event(user_id, "review_post", {"current_balance": bal_before},
+                  {"current_balance": bal_after}, None, None, round(amount, 2), "approved on review")
+    return {"balance_before": bal_before, "balance_after": bal_after}
+
+
+def reverse_debit(user_id: str, amount: float) -> Dict[str, float]:
+    """Reverse a previously-posted debit (repay credit first, then refund cash) —
+    used when an admin DENIES a transaction that had already posted."""
+    user = get_user_or_raise(user_id)
+    a = _acct(user)
+    bal_before = round(float(a.get("current_balance", 0.0)), 2)
+    credit_used = float(a.get("credit_used", 0.0))
+    repay = min(credit_used, amount)
+    a["credit_used"] = round(credit_used - repay, 2)
+    a["current_balance"] = round(bal_before + (amount - repay), 2)
+    a["total_spending"] = round(max(0.0, float(a.get("total_spending", 0.0)) - amount), 2)
+    bal_after = a["current_balance"]
+    _persist(user["_id"], a)
+    _record_event(user_id, "review_reverse", {"current_balance": bal_before},
+                  {"current_balance": bal_after}, None, None, round(amount, 2), "denied on review")
+    return {"balance_before": bal_before, "balance_after": bal_after}
+
+
 # ── history ──────────────────────────────────────────────────────────────────
 
 def get_history(user_id: str, limit: int = 100) -> list:

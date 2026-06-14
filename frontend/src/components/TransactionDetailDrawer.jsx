@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { X, Loader, Save, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { X, Loader, Save, AlertTriangle, ShieldCheck, Ban } from 'lucide-react';
 import api from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
 import './TransactionDetailDrawer.css';
@@ -29,13 +29,16 @@ const SeverityBadge = ({ severity }) => {
  *   onClose        – called to close
  *   onUpdated      – optional callback after a successful tag save
  *   canEdit        – whether to show the edit controls (default true)
+ *   reviewable     – show admin Approve/Deny actions (for fraud review)
+ *   onReviewed     – called after an approve/deny decision
  */
-export const TransactionDetailDrawer = ({ transactionId, onClose, onUpdated, canEdit = true }) => {
+export const TransactionDetailDrawer = ({ transactionId, onClose, onUpdated, canEdit = true, reviewable = false, onReviewed }) => {
   const toast = useToast();
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [reviewing, setReviewing] = useState(null);
   const [form, setForm] = useState({ merchant: '', tag: '', description: '' });
 
   const load = useCallback(async () => {
@@ -86,6 +89,22 @@ export const TransactionDetailDrawer = ({ transactionId, onClose, onUpdated, can
     }
   };
 
+  const handleReview = async (decision) => {
+    setReviewing(decision);
+    try {
+      await api.patch(`/api/admin/transactions/${transactionId}/review`, { decision });
+      toast.success(decision === 'approve'
+        ? 'Transaction approved as legitimate'
+        : 'Transaction denied — confirmed as fraud');
+      onReviewed?.(decision);
+      await load();
+    } catch (err) {
+      toast.error(err.cleanMessage || 'Review failed');
+    } finally {
+      setReviewing(null);
+    }
+  };
+
   if (!transactionId) return null;
 
   const isFraud = detail?.is_fraud;
@@ -114,6 +133,35 @@ export const TransactionDetailDrawer = ({ transactionId, onClose, onUpdated, can
               <span>{detail.fraud_status || (isFraud ? 'Fraud' : 'Approved')}</span>
               <SeverityBadge severity={detail.fraud_severity} />
             </div>
+
+            {reviewable && (
+              <div className="tdd-review">
+                <p className="tdd-review-label">Review this flagged transaction:</p>
+                <div className="tdd-review-actions">
+                  <button
+                    className="tdd-approve"
+                    onClick={() => handleReview('approve')}
+                    disabled={!!reviewing}
+                  >
+                    {reviewing === 'approve' ? <Loader className="tdd-spin" size={16} /> : <ShieldCheck size={16} />}
+                    Approve (legitimate)
+                  </button>
+                  <button
+                    className="tdd-deny"
+                    onClick={() => handleReview('deny')}
+                    disabled={!!reviewing}
+                  >
+                    {reviewing === 'deny' ? <Loader className="tdd-spin" size={16} /> : <Ban size={16} />}
+                    Deny (fraud)
+                  </button>
+                </div>
+                {detail.reviewed_at && (
+                  <p className="tdd-reviewed-note">
+                    Last reviewed: {detail.review_decision || '—'}
+                  </p>
+                )}
+              </div>
+            )}
 
             {(detail.merchant || detail.description) && (
               <div className="tdd-merchant">{detail.merchant || detail.description}</div>

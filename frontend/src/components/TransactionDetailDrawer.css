@@ -111,6 +111,33 @@
 .tdd-save:hover { background: #2563eb; }
 .tdd-save:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* ── Fraud review (approve / deny) ──────────────────────────────────────── */
+.tdd-review {
+  margin: 14px 0 4px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.tdd-review-label { font-size: 0.82rem; font-weight: 600; color: #334155; margin-bottom: 10px; }
+.tdd-review-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.tdd-approve, .tdd-deny {
+  flex: 1;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 10px 14px; border-radius: 9px; font-weight: 600; font-size: 0.88rem;
+}
+.tdd-approve { background: #dcfce7; color: #15803d; }
+.tdd-approve:hover:not(:disabled) { background: #bbf7d0; }
+.tdd-deny { background: #fee2e2; color: #b91c1c; }
+.tdd-deny:hover:not(:disabled) { background: #fecaca; }
+.tdd-approve:disabled, .tdd-deny:disabled { opacity: 0.6; cursor: not-allowed; }
+.tdd-reviewed-note { margin-top: 8px; font-size: 0.74rem; color: #94a3b8; text-transform: capitalize; }
+
+[data-theme="dark"] .tdd-review { background: #243044; border-color: #334155; }
+[data-theme="dark"] .tdd-review-label { color: #cbd5e1; }
+[data-theme="dark"] .tdd-approve { background: #14342a; color: #6ee7b7; }
+[data-theme="dark"] .tdd-deny { background: #3a1414; color: #fca5a5; }
+
 @media (max-width: 520px) {
   .tdd-grid { grid-template-columns: 1fr; }
   .tdd-drawer { width: 100vw; }

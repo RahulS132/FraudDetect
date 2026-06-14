@@ -3,6 +3,7 @@ import { Save, AlertOctagon, Loader, ShieldAlert } from 'lucide-react';
 import api from '../lib/api';
 import { Sidebar } from '../components/Sidebar';
 import { TopBar } from '../components/TopBar';
+import { TransactionDetailDrawer } from '../components/TransactionDetailDrawer';
 import { useToast } from '../contexts/ToastContext';
 import { useRealtime } from '../contexts/RealtimeContext';
 import './AdminPages.css';
@@ -17,6 +18,7 @@ export const FraudConfig = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [reviewTxn, setReviewTxn] = useState(null);   // open detail drawer for review
 
   const loadCfg = useCallback(async () => {
     try {
@@ -132,16 +134,22 @@ export const FraudConfig = () => {
               <div className="adm-state">No fraud events yet</div>
             ) : (
               <table className="adm-table">
-                <thead><tr><th>When</th><th>User</th><th>Score</th><th>Severity</th><th>Action</th><th>Reason</th></tr></thead>
+                <thead><tr><th>When</th><th>User</th><th>Score</th><th>Severity</th><th>Action</th><th>Reason</th><th></th></tr></thead>
                 <tbody>
                   {events.map((e) => (
-                    <tr key={e.id}>
+                    <tr
+                      key={e.id}
+                      onClick={() => e.transaction_id && setReviewTxn(e.transaction_id)}
+                      style={{ cursor: e.transaction_id ? 'pointer' : 'default' }}
+                      title="Click to view details and approve/deny"
+                    >
                       <td style={{ whiteSpace: 'nowrap' }}>{fmtTime(e.created_at)}</td>
                       <td>{e.username || e.user_id || '—'}</td>
                       <td><strong>{e.fraud_score}</strong></td>
                       <td><span className={`pill ${e.severity}`}>{e.severity}</span></td>
                       <td><span className={`pill ${e.action === 'blocked' ? 'block' : 'flag'}`}>{e.action}</span></td>
                       <td style={{ color: '#64748b', fontSize: '0.8rem' }}>{e.reason}</td>
+                      <td style={{ color: '#2563eb', fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>Review →</td>
                     </tr>
                   ))}
                 </tbody>
@@ -150,6 +158,16 @@ export const FraudConfig = () => {
           </div>
         </div>
       </div>
+
+      {reviewTxn && (
+        <TransactionDetailDrawer
+          transactionId={reviewTxn}
+          reviewable
+          canEdit={false}
+          onClose={() => setReviewTxn(null)}
+          onReviewed={() => { loadEvents(); }}
+        />
+      )}
     </div>
   );
 };
