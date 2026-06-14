@@ -274,3 +274,26 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+[data-theme="dark"] .section-card {
+  background: #1e293b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+[data-theme="dark"] .section-title,
+[data-theme="dark"] .username-cell,
+[data-theme="dark"] .cm-metric-value { color: #e2e8f0; }
+[data-theme="dark"] .section-subtitle,
+[data-theme="dark"] .distribution-label,
+[data-theme="dark"] .email-cell,
+[data-theme="dark"] .cm-metric-label,
+[data-theme="dark"] .cm-row-header,
+[data-theme="dark"] .cm-col-header { color: #94a3b8; }
+[data-theme="dark"] .distribution-item,
+[data-theme="dark"] .cm-metric { background: #243044; }
+[data-theme="dark"] .data-table thead { background: #243044; }
+[data-theme="dark"] .data-table th { color: #cbd5e1; border-bottom-color: #475569; }
+[data-theme="dark"] .data-table td { color: #cbd5e1; border-bottom-color: #334155; }
+[data-theme="dark"] .data-table tbody tr:hover { background: #243044; }
+[data-theme="dark"] .stat-card.stat-info .stat-icon { background: #1e3a5f; color: #93c5fd; }
+/* Confusion-matrix cells + rate badges keep their semantic colours (good contrast). */

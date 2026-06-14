@@ -60,6 +60,31 @@ def monthly_spend(user_id: str) -> float:
         return 0.0
 
 
+def user_amount_stats(user_id: str) -> Dict[str, Any]:
+    """Mean/std/count of an account's debit history + recent velocity.
+
+    Feeds the per-account anomaly (z-score) and velocity signals of the fraud
+    scorer. Only spends (is_approved or fraud debits) count toward the pattern.
+    """
+    try:
+        from datetime import timedelta
+        agg = list(transactions_collection.aggregate([
+            {"$match": {"user_id": user_id, "Amount": {"$gt": 0}}},
+            {"$group": {"_id": None, "mean": {"$avg": "$Amount"},
+                        "std": {"$stdDevPop": "$Amount"}, "count": {"$sum": 1}}},
+        ]))
+        mean = float(agg[0]["mean"]) if agg and agg[0].get("mean") is not None else None
+        std = float(agg[0]["std"]) if agg and agg[0].get("std") is not None else None
+        count = int(agg[0]["count"]) if agg else 0
+        recent = transactions_collection.count_documents({
+            "user_id": user_id,
+            "created_at": {"$gte": datetime.utcnow() - timedelta(hours=1)},
+        })
+        return {"mean": mean, "std": std, "count": count, "recent_count": int(recent)}
+    except Exception:
+        return {"mean": None, "std": None, "count": 0, "recent_count": 0}
+
+
 def monthly_spend_map() -> Dict[str, float]:
     """{user_id: this-month approved spend} for all users, in one aggregation."""
     try:
@@ -342,28 +367,32 @@ def check_can_spend(user: Dict[str, Any], amount: float) -> Tuple[bool, str, flo
     return True, "", power
 
 
-def commit_batch(user_id: str, balance_used: float, credit_drawn: float,
-                 count: int, spend_total: float) -> Dict[str, float]:
-    """Apply many approved spends at once (one DB write).
+def commit_batch(user_id: str, *, final_balance: float, final_credit_used: float,
+                 spend_total: float = 0.0, deposit_total: float = 0.0,
+                 count: int = 0) -> Dict[str, float]:
+    """Persist a batch's money movements in one write.
 
-    `balance_used` is drawn from the cash balance, `credit_drawn` from the
-    credit line. Used by the bulk-create pipeline after per-item feasibility has
-    been verified against a running local balance.
+    The caller (the transaction pipeline) has already walked the batch in order
+    — debits draw cash then credit, deposits add cash back — and knows the exact
+    resulting `final_balance` / `final_credit_used`. We set those authoritatively
+    (avoids order-of-operations errors when a deposit and a purchase share a
+    batch) and bump the lifetime spend/deposit/count totals.
     """
     user = get_user_or_raise(user_id)
     a = _acct(user)
     bal_before = round(float(a.get("current_balance", 0.0)), 2)
-    a["current_balance"] = round(max(0.0, bal_before - balance_used), 2)
-    a["credit_used"] = round(float(a.get("credit_used", 0.0)) + credit_drawn, 2)
+    a["current_balance"] = round(max(0.0, final_balance), 2)
+    a["credit_used"] = round(max(0.0, final_credit_used), 2)
     a["total_spending"] = round(float(a.get("total_spending", 0.0)) + spend_total, 2)
+    a["total_deposits"] = round(float(a.get("total_deposits", 0.0)) + deposit_total, 2)
     a["total_transactions"] = int(a.get("total_transactions", 0)) + count
     bal_after = a["current_balance"]
     _persist(user["_id"], a)
-    if spend_total or count:
+    if count:
         _record_event(
             user_id, "spend",
             {"current_balance": bal_before}, {"current_balance": bal_after},
-            None, None, round(spend_total, 2), f"{count} transaction(s)",
+            None, None, round(spend_total - deposit_total, 2), f"{count} transaction(s)",
         )
     return {"balance_before": bal_before, "balance_after": bal_after}
 

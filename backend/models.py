@@ -158,6 +158,27 @@ class CreationSource(str, Enum):
     ADMIN_BULK = "admin_bulk"
 
 
+class TransactionType(str, Enum):
+    """Direction of money movement, like a real bank/credit card.
+
+    Debits move money OUT (reduce balance / draw credit); credits move money IN
+    (increase balance). Only debits are scored for fraud — incoming money is not
+    a fraud risk to the account holder.
+    """
+    PURCHASE = "purchase"       # debit  (money out)
+    WITHDRAWAL = "withdrawal"   # debit  (money out)
+    DEPOSIT = "deposit"         # credit (money in)
+    REFUND = "refund"           # credit (money in)
+
+
+# Types that move money INTO the account.
+CREDIT_TXN_TYPES = {TransactionType.DEPOSIT.value, TransactionType.REFUND.value}
+
+
+def is_credit_txn(txn_type: str) -> bool:
+    return (txn_type or TransactionType.PURCHASE.value) in CREDIT_TXN_TYPES
+
+
 class FraudSeverity(str, Enum):
     NONE = "none"
     LOW = "low"
@@ -175,6 +196,10 @@ class ManualTransactionCreate(BaseModel):
     absent the fraud score is computed by a lightweight rule-based heuristic
     (see fraud_detection.score_manual_transaction)."""
     amount: float = Field(..., ge=0, description="Transaction amount in dollars")
+    txn_type: TransactionType = Field(
+        TransactionType.PURCHASE,
+        description="purchase/withdrawal = money out (scored); deposit/refund = money in",
+    )
     category: Optional[str] = Field(None, max_length=100)
     tag: Optional[TransactionTag] = None
     description: Optional[str] = Field(None, max_length=1000)

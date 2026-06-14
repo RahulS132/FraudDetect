@@ -24,6 +24,7 @@ from models import (
     BulkCreateResult,
     AdminUserSummary,
     UserAnalytics,
+    is_credit_txn,
 )
 from database import (
     users_collection,
@@ -38,7 +39,7 @@ from services import account as account_service
 from services import rules_engine
 from services import fraud_config as fraud_config_service
 from services import blocking as blocking_service
-from services.events import broker
+from services.events import broker, ADMINS
 
 router = APIRouter(prefix="/api/admin", tags=["Admin - Transactions"])
 
@@ -408,6 +409,11 @@ async def bulk_create_transactions(
         frozen = acct["is_frozen"]
         suspended = acct["credit_suspended"]
 
+        # Per-account history feeds the fraud algorithm (z-score + velocity).
+        stats = account_service.user_amount_stats(payload.user_id)
+        user_mean, user_std = stats["mean"], stats["std"]
+        running_recent = int(stats["recent_count"])  # grows as we add debits
+
         def avail_credit() -> float:
             return 0.0 if suspended else max(0.0, round(credit_limit - running_credit_used, 2))
 
@@ -420,21 +426,49 @@ async def bulk_create_transactions(
         notify: List[Dict[str, Any]] = []        # fraud notifications to fire
         rejections: List[Dict[str, Any]] = []     # audit entries for rejects
         flag_account = False
-        approved_total = 0.0
-        approved_count = 0
+        spend_total = 0.0           # debit amount (money out, posted)
+        deposit_total = 0.0         # credit amount (money in)
+        posted_count = 0            # money-moving txns (deposits + approved debits)
         balance_used_total = 0.0
         credit_drawn_total = 0.0
 
         for idx, item in enumerate(payload.transactions):
             try:
+                amt = float(item.amount)
+                ttype = item.txn_type.value if item.txn_type else "purchase"
+                is_credit = is_credit_txn(ttype)   # deposit / refund → money in
+                balance_before = round(running_balance, 2)
+
+                # ── Money IN (deposit / refund): no fraud scoring, just credit ──
+                if is_credit:
+                    running_balance = round(running_balance + amt, 2)
+                    balance_after = running_balance
+                    deposit_total += amt
+                    posted_count += 1
+                    td = {
+                        "user_id": payload.user_id, "Time": 0.0, "Amount": amt, "Class": 0,
+                        "txn_type": ttype, "direction": "credit",
+                        "category": item.category, "tag": item.tag.value if item.tag else None,
+                        "description": item.description, "merchant": item.merchant,
+                        "country": item.country, "card_type": item.card_type,
+                        "creation_source": source, "created_by": current_admin["id"],
+                        "transaction_time": item.transaction_time or now, "created_at": now,
+                        "is_fraud": False, "is_approved": True, "anomaly_score": 0.5,
+                        "actual_class": 0, "severity": "none", "fraud_score": 0.0,
+                        "auto_blocked": False, "flagged": False,
+                        "balance_before": balance_before, "balance_after": balance_after,
+                    }
+                    txn_docs.append(td)
+                    scored.append({"is_fraud": False, "fraud_score": 0.0, "severity": "none",
+                                   "anomaly_score": 0.5, "auto_blocked": False,
+                                   "auto_flagged": False, "threshold": None})
+                    continue
+
+                # ── Money OUT (purchase / withdrawal): full enforcement ──────────
                 txn_ctx = {
-                    "amount": float(item.amount),
-                    "merchant": item.merchant,
-                    "category": item.category,
-                    "tag": item.tag.value if item.tag else None,
-                    "country": item.country,
-                    "card_type": item.card_type,
-                    "user_id": payload.user_id,
+                    "amount": amt, "merchant": item.merchant, "category": item.category,
+                    "tag": item.tag.value if item.tag else None, "country": item.country,
+                    "card_type": item.card_type, "user_id": payload.user_id,
                 }
 
                 # 1) Rules engine
@@ -445,12 +479,15 @@ async def bulk_create_transactions(
                     continue
                 flagged_by_rule = bool(rule_res["flags"])
 
-                # 2) Fraud scoring + auto decision
+                # 2) Fraud scoring (per-account anomaly + velocity) + auto decision
                 sc = score_manual_transaction(
-                    amount=item.amount, is_fraud_override=item.is_fraud_override,
+                    amount=amt, is_fraud_override=item.is_fraud_override,
                     category=item.category or "Other",
                     transaction_time=item.transaction_time,
+                    recent_count=running_recent,
+                    user_mean=user_mean, user_std=user_std,
                 )
+                running_recent += 1   # each debit raises this account's velocity
                 decision = fraud_config_service.decide(sc["fraud_score"])
                 auto_blocked = decision["action"] == "block"
                 auto_flagged = decision["action"] == "flag" or flagged_by_rule
@@ -463,11 +500,8 @@ async def bulk_create_transactions(
                 approved = sc["is_approved"] and not auto_blocked
 
                 # 3) Balance / credit check (only for spends that would post).
-                # Pay from cash balance first, then draw on available credit.
-                balance_before = round(running_balance, 2)
                 balance_after = balance_before
                 if approved:
-                    amt = float(item.amount)
                     if frozen:
                         errors.append({"index": idx, "error": "Account balance is frozen", "kind": "balance"})
                         rejections.append({"index": idx, "reason": "frozen", "type": "balance_reject"})
@@ -487,15 +521,18 @@ async def bulk_create_transactions(
                     balance_after = running_balance
                     balance_used_total += from_balance
                     credit_drawn_total += remainder
-                    approved_total += amt
-                    approved_count += 1
+                    spend_total += amt
+                    posted_count += 1
+                # Fraud/blocked debits are still recorded but don't post to balance.
 
                 actual_class = 1 if (item.is_fraud_override is True or auto_blocked) else int(sc.get("is_fraud", False))
                 td = {
                     "user_id": payload.user_id,
                     "Time": 0.0,
-                    "Amount": float(item.amount),
+                    "Amount": amt,
                     "Class": int(actual_class),
+                    "txn_type": ttype,
+                    "direction": "debit",
                     "category": item.category,
                     "tag": item.tag.value if item.tag else None,
                     "description": item.description,
@@ -536,8 +573,7 @@ async def bulk_create_transactions(
                 })
             return {
                 "ids": [], "scored": [], "errors": errors, "fraud_flagged": 0,
-                "notify": [], "approved_total": 0.0, "approved_count": 0,
-                "rejections": rejections,
+                "notify": [], "posted_count": 0, "rejections": rejections,
             }
 
         # Insert transactions + detection results.
@@ -557,11 +593,13 @@ async def bulk_create_transactions(
             })
         detection_results_collection.insert_many(det_docs)
 
-        # Commit approved spends to the balance in one write.
-        if approved_total or approved_count:
+        # Commit the batch's money movements (debits out, deposits in) in one
+        # write, using the exact running balance/credit computed above.
+        if posted_count:
             account_service.commit_batch(
-                payload.user_id, balance_used_total, credit_drawn_total,
-                approved_count, approved_total,
+                payload.user_id,
+                final_balance=running_balance, final_credit_used=running_credit_used,
+                deposit_total=deposit_total, spend_total=spend_total, count=posted_count,
             )
 
         # Fraud events + account flagging + notification list.
@@ -602,7 +640,7 @@ async def bulk_create_transactions(
             "details": {
                 "count": len(ids), "fraud_flagged": fraud_flagged,
                 "rejected": len(rejections), "source": source,
-                "approved_total": round(approved_total, 2),
+                "spend_total": round(spend_total, 2), "deposit_total": round(deposit_total, 2),
             },
             "created_at": now,
         })
@@ -615,8 +653,8 @@ async def bulk_create_transactions(
         return {
             "ids": [str(i) for i in ids], "errors": errors,
             "fraud_flagged": fraud_flagged, "notify": notify,
-            "approved_total": approved_total, "approved_count": approved_count,
-            "rejections": rejections,
+            "posted_count": posted_count, "deposit_total": round(deposit_total, 2),
+            "spend_total": round(spend_total, 2), "rejections": rejections,
         }
 
     outcome = await run_in_threadpool(_process)
@@ -628,12 +666,28 @@ async def bulk_create_transactions(
             errors=outcome["errors"],
         )
 
-    # Real-time fraud notifications (to user + admins).
-    for n in outcome["notify"]:
-        await notif_service.notify_fraud(
-            user_id=payload.user_id, username=target_username,
-            amount=n["amount"], severity=n["severity"],
-            transaction_id=n["transaction_id"],
+    # Real-time fraud notification — ONE summary (not one per row) so a bulk
+    # import never floods the notification center.
+    notify = outcome["notify"]
+    if notify:
+        worst = "critical" if any(n["severity"] == "critical" for n in notify) else (
+            "high" if any(n["severity"] == "high" for n in notify) else "medium")
+        n_fraud = len(notify)
+        total_amt = sum(float(n.get("amount") or 0) for n in notify)
+        if n_fraud == 1:
+            msg = f"A transaction of ${total_amt:,.2f} was flagged as fraudulent."
+        else:
+            msg = f"{n_fraud} transactions (${total_amt:,.2f}) were flagged as fraudulent."
+        await notif_service.create_notification(
+            audience=payload.user_id, user_id=payload.user_id, type="fraud_alert",
+            title="Potential fraud detected", message=msg, severity=worst,
+            transaction_id=notify[0]["transaction_id"],
+        )
+        await notif_service.create_notification(
+            audience=ADMINS, user_id=None, type="fraud_alert",
+            title=f"Fraud flagged ({worst})",
+            message=f"{n_fraud} transaction(s) flagged for {target_username or payload.user_id}.",
+            severity=worst, transaction_id=notify[0]["transaction_id"],
         )
 
     # Tell the affected user and all admins their data changed.

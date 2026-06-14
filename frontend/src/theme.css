@@ -65,7 +65,9 @@
 [data-theme="dark"] .toast,
 [data-theme="dark"] .txe-table-wrap,
 [data-theme="dark"] .cm-metric,
-[data-theme="dark"] .distribution-item {
+[data-theme="dark"] .distribution-item,
+[data-theme="dark"] .section-card,
+[data-theme="dark"] .empty-state {
   background: var(--surface);
   border-color: var(--border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
@@ -191,6 +193,37 @@
 [data-theme="dark"] ::-webkit-scrollbar-track { background: #1e293b; }
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background: #475569; }
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+/* ── Remaining light buttons / surfaces that must follow dark mode ────────── */
+[data-theme="dark"] .btn-cancel,
+[data-theme="dark"] .at-tabs button,
+[data-theme="dark"] .at-secondary,
+[data-theme="dark"] .modal-actions .btn-cancel {
+  background: #334155 !important;
+  color: #e2e8f0 !important;
+}
+[data-theme="dark"] .at-tabs button.active {
+  background: #2563eb !important;
+  color: #fff !important;
+}
+[data-theme="dark"] .at-tabs { border-color: #334155; }
+[data-theme="dark"] .notif-item.unread { background: #1e2a44; }
+[data-theme="dark"] .notif-item.unread:hover { background: #243355; }
+[data-theme="dark"] .notif-item { border-bottom-color: #243044; }
+[data-theme="dark"] .notif-item-message,
+[data-theme="dark"] .notif-item-time,
+[data-theme="dark"] .au-user-email,
+[data-theme="dark"] .page-subtitle,
+[data-theme="dark"] .at-hint,
+[data-theme="dark"] .modal .modal-sub { color: #94a3b8; }
+[data-theme="dark"] .au-placeholder,
+[data-theme="dark"] .au-state,
+[data-theme="dark"] .empty-rules { color: #94a3b8; }
+[data-theme="dark"] .tdd-grid dt,
+[data-theme="dark"] .tdd-label { color: #94a3b8; }
+[data-theme="dark"] .at-result.ok { background: #14342a; color: #6ee7b7; }
+[data-theme="dark"] .at-result.err { background: #3a1414; color: #fca5a5; }
+[data-theme="dark"] .fc-toggle .track { background: #475569; }
 
 /* ── Theme toggle control (in sidebar) ──────────────────────────────────── */
 .theme-toggle {

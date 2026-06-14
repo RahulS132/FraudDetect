@@ -224,6 +224,29 @@
   margin-right: 0.75rem;
 }
 
+.upload-result-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+.upload-view-btn {
+  padding: 0.7rem 1.4rem;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.upload-view-btn:hover { background: #1d4ed8; }
+.upload-again-btn {
+  padding: 0.7rem 1.4rem;
+  background: #f1f5f9;
+  color: #334155;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.upload-again-btn:hover { background: #e2e8f0; }
+
 @media (max-width: 768px) {
   .upload-dropzone {
     padding: 2rem 1rem;
@@ -233,3 +256,33 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+[data-theme="dark"] .upload-form,
+[data-theme="dark"] .upload-info {
+  background: #1e293b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+[data-theme="dark"] .upload-dropzone {
+  background: #243044;
+  border-color: #475569;
+}
+[data-theme="dark"] .upload-dropzone:hover { background: #2c3a52; border-color: #3b82f6; }
+[data-theme="dark"] .upload-dropzone.has-file { background: #14342a; border-color: #10b981; }
+[data-theme="dark"] .upload-stats { background: #243044; }
+[data-theme="dark"] .upload-text,
+[data-theme="dark"] .file-name,
+[data-theme="dark"] .stats-title,
+[data-theme="dark"] .info-title,
+[data-theme="dark"] .stat-item-value { color: #e2e8f0; }
+[data-theme="dark"] .upload-hint,
+[data-theme="dark"] .file-size,
+[data-theme="dark"] .stat-item-label,
+[data-theme="dark"] .info-list li { color: #94a3b8; }
+[data-theme="dark"] .info-list li { border-bottom-color: #334155; }
+[data-theme="dark"] .page-title { color: #e2e8f0; }
+[data-theme="dark"] .page-subtitle { color: #94a3b8; }
+[data-theme="dark"] .upload-again-btn { background: #334155; color: #e2e8f0; }
+[data-theme="dark"] .upload-again-btn:hover { background: #3f4d63; }
+[data-theme="dark"] .message-success { background: #14342a; color: #6ee7b7; }
+[data-theme="dark"] .message-error { background: #3a1414; color: #fca5a5; }

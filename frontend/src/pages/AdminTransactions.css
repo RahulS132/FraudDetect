@@ -38,7 +38,7 @@
 .at-rows { display: flex; flex-direction: column; gap: 0.5rem; }
 .at-row {
   display: grid;
-  grid-template-columns: 120px 1fr 130px 1fr 90px 40px;
+  grid-template-columns: 105px 125px 1fr 120px 1fr 85px 40px;
   gap: 0.6rem;
   align-items: center;
 }

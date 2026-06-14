@@ -20,6 +20,7 @@ import {
 import { TrendingUp, TrendingDown, Activity, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { BalanceWidgets } from '../components/BalanceWidgets';
+import { useAuth } from '../contexts/AuthContext';
 import './Dashboard.css';
 
 ChartJS.register(
@@ -44,6 +45,7 @@ export const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { onTransactionsUpdated } = useRealtime();
+  const { isAdmin } = useAuth();
 
   const fetchAll = useCallback(async () => {
     try {
@@ -283,8 +285,8 @@ export const Dashboard = () => {
           subtitle="Overview of your fraud detection statistics"
         />
 
-        {/* ── Balance / credit widgets ───────────────────────────────────── */}
-        <BalanceWidgets />
+        {/* ── Balance / credit widgets (users only — admins manage these per-user) ── */}
+        {!isAdmin() && <BalanceWidgets />}
 
         {/* ── Stat Cards (clickable → filtered Transactions) ─────────────── */}
         <div className="stats-grid">

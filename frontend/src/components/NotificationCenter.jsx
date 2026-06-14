@@ -25,19 +25,26 @@ export const NotificationCenter = () => {
   const ref = useRef(null);
 
   useEffect(() => {
+    if (!open) return undefined;
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    // Only listen while open, and on the next tick so the opening click itself
+    // doesn't immediately close it.
+    const id = setTimeout(() => document.addEventListener('mousedown', handler), 0);
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener('mousedown', handler);
+    };
+  }, [open]);
 
   return (
     <div className="notif-center" ref={ref}>
       <button
         className="notif-bell"
-        onClick={() => setOpen((o) => !o)}
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
         aria-label="Notifications"
+        aria-expanded={open}
       >
         <Bell size={20} />
         {unreadCount > 0 && (

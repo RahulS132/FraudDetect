@@ -12,7 +12,10 @@ from typing import Any, Dict, Optional
 
 from bson import ObjectId
 
-from database import fraud_config_collection, fraud_events_collection, users_collection
+from database import (
+    fraud_config_collection, fraud_events_collection, users_collection,
+    transactions_collection,
+)
 from services import audit
 
 _DEFAULTS = {
@@ -102,20 +105,62 @@ def flag_account(user_id: str, reason: str) -> None:
         pass
 
 
+def _score_from_anomaly(anomaly_score) -> float:
+    """Map an Isolation-Forest anomaly_score (lower = riskier) to a 0–100 score."""
+    if anomaly_score is None:
+        return 75.0
+    return round(max(0.0, min(100.0, (0.5 - float(anomaly_score)) * 100.0)), 1)
+
+
 def list_events(limit: int = 100) -> list:
-    docs = fraud_events_collection.find().sort("created_at", -1).limit(limit)
+    """Recent fraud events feed.
+
+    Shows the most recent transactions flagged as fraud from ANY source (CSV
+    uploads and manual/auto-blocked transactions), joined to the user, so the
+    Fraud Config page always reflects real detections — not only auto-blocks.
+    """
+    try:
+        txns = list(
+            transactions_collection.find({"is_fraud": True})
+            .sort("created_at", -1)
+            .limit(limit)
+        )
+    except Exception:
+        txns = []
+
+    # Resolve usernames in one batch.
+    from bson import ObjectId
+    uid_set = {t.get("user_id") for t in txns if t.get("user_id")}
+    name_map = {}
+    if uid_set:
+        oids = []
+        for uid in uid_set:
+            try:
+                oids.append(ObjectId(uid))
+            except Exception:
+                continue
+        for u in users_collection.find({"_id": {"$in": oids}}, {"username": 1}):
+            name_map[str(u["_id"])] = u.get("username", "")
+
     out = []
-    for d in docs:
+    for t in txns:
+        score = t.get("fraud_score")
+        if score is None:
+            score = _score_from_anomaly(t.get("anomaly_score"))
+        blocked = bool(t.get("auto_blocked"))
         out.append({
-            "id": str(d["_id"]),
-            "transaction_id": d.get("transaction_id"),
-            "user_id": d.get("user_id"),
-            "username": d.get("username"),
-            "fraud_score": d.get("fraud_score", 0.0),
-            "severity": d.get("severity", "none"),
-            "threshold": d.get("threshold"),
-            "action": d.get("action", "flagged"),
-            "reason": d.get("reason"),
-            "created_at": d.get("created_at"),
+            "id": str(t["_id"]),
+            "transaction_id": str(t["_id"]),
+            "user_id": t.get("user_id"),
+            "username": name_map.get(t.get("user_id") or "", ""),
+            "fraud_score": round(float(score), 1),
+            "severity": t.get("severity") or "high",
+            "threshold": None,
+            "action": "blocked" if blocked else "flagged",
+            "reason": (
+                f"${float(t.get('Amount', 0)):,.2f} {t.get('txn_type', 'purchase')} flagged"
+                + (" — auto-blocked" if blocked else "")
+            ),
+            "created_at": t.get("created_at"),
         })
     return out

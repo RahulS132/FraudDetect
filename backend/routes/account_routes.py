@@ -38,6 +38,19 @@ from services import account as account_service
 from services import blocking as blocking_service
 from services import security_log
 from services import audit
+from services.events import broker
+
+
+async def _notify_account(user_id: str):
+    """Push a live-refresh event so the user's balance widgets and admin views
+    update without a reload after any account/status change."""
+    try:
+        await broker.publish_to_user(user_id, "transactions_updated", {"reason": "account_update"})
+        await broker.publish_to_admins(
+            "transactions_updated", {"reason": "account_update", "user_id": user_id}
+        )
+    except Exception:
+        pass
 
 user_router = APIRouter(prefix="/api/account", tags=["Account"])
 admin_router = APIRouter(prefix="/api/admin", tags=["Admin - Accounts"])
@@ -88,12 +101,15 @@ async def admin_get_account(user_id: str, current_admin: dict = Depends(get_curr
 
 
 def _wrap(fn, *args):
-    """Run a sync account-service call in the threadpool, mapping ValueError→404."""
+    """Run a sync account-service call in the threadpool, mapping ValueError→404,
+    then emit a live-refresh event for the target user (args[0])."""
     async def runner():
         try:
-            return await run_in_threadpool(fn, *args)
+            res = await run_in_threadpool(fn, *args)
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
+        await _notify_account(args[0])
+        return res
     return runner()
 
 
@@ -121,7 +137,7 @@ async def admin_set_credit_limit(user_id: str, body: CreditLimitRequest, current
 
     async def runner():
         try:
-            return await run_in_threadpool(
+            res = await run_in_threadpool(
                 lambda: account_service.set_credit_limit(
                     user_id, credit_limit=body.credit_limit, delta=body.delta,
                     actor=current_admin, note=body.note,
@@ -129,6 +145,8 @@ async def admin_set_credit_limit(user_id: str, body: CreditLimitRequest, current
             )
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
+        await _notify_account(user_id)
+        return res
     return await runner()
 
 
@@ -160,7 +178,7 @@ async def admin_block(user_id: str, body: BlockRequest, current_admin: dict = De
 
     async def runner():
         try:
-            return await run_in_threadpool(
+            res = await run_in_threadpool(
                 lambda: blocking_service.block_user(
                     user_id, reason_code=body.reason_code.value,
                     reason=body.reason, notes=body.notes, actor=current_admin,
@@ -168,6 +186,8 @@ async def admin_block(user_id: str, body: BlockRequest, current_admin: dict = De
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
+        await _notify_account(user_id)
+        return res
     return await runner()
 
 
@@ -177,11 +197,13 @@ async def admin_unblock(user_id: str, body: UnblockRequest, current_admin: dict 
 
     async def runner():
         try:
-            return await run_in_threadpool(
+            res = await run_in_threadpool(
                 lambda: blocking_service.unblock_user(user_id, notes=body.notes, actor=current_admin)
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
+        await _notify_account(user_id)
+        return res
     return await runner()
 
 
@@ -193,13 +215,15 @@ async def admin_set_status(user_id: str, body: StatusRequest, current_admin: dic
 
     async def runner():
         try:
-            return await run_in_threadpool(
+            res = await run_in_threadpool(
                 lambda: blocking_service.set_status(
                     user_id, status=body.status.value, notes=body.notes, actor=current_admin
                 )
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
+        await _notify_account(user_id)
+        return res
     return await runner()
 
 

@@ -53,13 +53,11 @@ export const UploadCSV = () => {
       setSuccess(true);
       setStats(response.data.statistics);
       setFile(null);
-      
+
       // Reset file input
       document.getElementById('file-input').value = '';
-      
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 3000);
+      // Note: we intentionally do NOT auto-redirect — let the user review the
+      // results here and navigate when they're ready.
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to upload file');
     } finally {
@@ -169,7 +167,17 @@ export const UploadCSV = () => {
                     <span className="stat-item-value stat-danger">{stats.fraud_detected}</span>
                   </div>
                 </div>
-                <p className="redirect-message">Redirecting to dashboard...</p>
+                <div className="upload-result-actions">
+                  <button type="button" className="upload-view-btn" onClick={() => navigate('/dashboard')}>
+                    View on Dashboard
+                  </button>
+                  <button
+                    type="button" className="upload-again-btn"
+                    onClick={() => { setSuccess(false); setStats(null); }}
+                  >
+                    Upload another file
+                  </button>
+                </div>
               </div>
             )}
 

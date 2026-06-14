@@ -122,7 +122,7 @@ class RuleBasedFraudScorer:
     """Deterministic, explainable risk scorer for manual transactions."""
 
     # Fraud-risk threshold: at/above this score a transaction is flagged.
-    FRAUD_THRESHOLD = 70.0
+    FRAUD_THRESHOLD = 50.0
 
     # Per-category baseline risk weight (0–25 points).
     CATEGORY_RISK = {
@@ -152,24 +152,34 @@ class RuleBasedFraudScorer:
     ]
 
     def score(self, amount: float, category: str = "Other",
-              txn_time=None, recent_count: int = 0) -> dict:
+              txn_time=None, recent_count: int = 0,
+              user_mean: float = None, user_std: float = None) -> dict:
         """
         Compute a fraud assessment for a single manual transaction.
+
+        Combines absolute-amount risk, a **per-account statistical anomaly**
+        (how far this amount sits from the account's own spending pattern, in
+        standard deviations), category, time-of-day, and velocity. The per-
+        account z-score is the core "algorithm" — a transaction that is wildly
+        out of line with a user's history is flagged even if its absolute amount
+        is modest, and a large-but-normal amount for a high-spend account isn't
+        over-penalised.
 
         Args:
             amount: transaction amount in dollars
             category: business category
-            txn_time: datetime of the transaction (for time-of-day risk)
-            recent_count: number of transactions the user made in the last
-                          short window (velocity signal)
+            txn_time: datetime of the transaction (time-of-day risk)
+            recent_count: transactions the user made in the recent window (velocity)
+            user_mean / user_std: the account's historical amount mean / std dev
 
         Returns a dict with: fraud_score, is_fraud, is_approved, severity,
-        anomaly_score (for chart compatibility) and reasons.
+        anomaly_score (for chart compatibility), z_score and reasons.
         """
         reasons = []
         score = 0.0
+        z = None
 
-        # 1) Amount risk
+        # 1) Absolute amount risk
         amount_points = 0
         for threshold, pts in self.AMOUNT_BANDS:
             if amount >= threshold:
@@ -179,13 +189,25 @@ class RuleBasedFraudScorer:
             reasons.append(f"High amount (${amount:,.2f}) → +{amount_points}")
         score += amount_points
 
-        # 2) Category risk
+        # 2) Per-account statistical anomaly (z-score) — the core algorithm
+        if user_mean is not None and user_std is not None and user_std > 0:
+            z = (amount - user_mean) / user_std
+            if z > 1.0:
+                z_points = min(40.0, (z - 1.0) * 18.0)
+                score += z_points
+                reasons.append(f"Amount is {z:.1f}σ above this account's average → +{z_points:.0f}")
+        elif user_mean is not None and user_mean > 0 and amount > user_mean * 4:
+            # Too little history for a std dev, but the amount dwarfs the average.
+            score += 22
+            reasons.append("Amount far above this account's typical spend → +22")
+
+        # 3) Category risk
         cat_points = self.CATEGORY_RISK.get(category, self.CATEGORY_RISK["Other"])
         score += cat_points
         if cat_points >= 18:
             reasons.append(f"High-risk category '{category}' → +{cat_points}")
 
-        # 3) Time-of-day risk (transactions 00:00–05:00 are riskier)
+        # 4) Time-of-day risk (transactions 00:00–05:00 are riskier)
         if txn_time is not None:
             try:
                 hour = txn_time.hour
@@ -198,13 +220,16 @@ class RuleBasedFraudScorer:
             except Exception:
                 pass
 
-        # 4) Velocity risk (many transactions in a short window)
-        if recent_count >= 10:
+        # 5) Velocity risk (many transactions in a short window)
+        if recent_count >= 8:
             score += 20
             reasons.append(f"High velocity ({recent_count} recent) → +20")
-        elif recent_count >= 5:
-            score += 10
-            reasons.append(f"Elevated velocity ({recent_count} recent) → +10")
+        elif recent_count >= 4:
+            score += 12
+            reasons.append(f"Elevated velocity ({recent_count} recent) → +12")
+        elif recent_count >= 2:
+            score += 6
+            reasons.append(f"Multiple recent transactions ({recent_count}) → +6")
 
         score = float(max(0.0, min(100.0, score)))
         severity = self.severity_for(score)
@@ -224,6 +249,7 @@ class RuleBasedFraudScorer:
             "is_approved": bool(not is_fraud),
             "severity": severity,
             "anomaly_score": anomaly_score,
+            "z_score": round(z, 2) if z is not None else None,
             "reasons": reasons,
         }
 
@@ -273,19 +299,23 @@ def score_manual_transaction(
     category: str = "Other",
     transaction_time=None,
     recent_count: int = 0,
+    user_mean: float = None,
+    user_std: float = None,
 ) -> dict:
     """Score a single hand-entered transaction.
 
-    Delegates to the rule-based scorer, then applies an optional admin override
-    that forces the fraud flag. Returns a dict with the keys the callers expect:
-        is_fraud, is_approved, anomaly_score, severity
-    (plus fraud_score and reasons from the underlying scorer).
+    Delegates to the rule-based scorer (which combines absolute amount, a
+    per-account statistical anomaly, category, time and velocity), then applies
+    an optional admin override that forces the fraud flag. Returns a dict with:
+        is_fraud, is_approved, anomaly_score, severity, fraud_score, reasons.
     """
     result = rule_scorer.score(
         amount=amount,
         category=category or "Other",
         txn_time=transaction_time,
         recent_count=recent_count,
+        user_mean=user_mean,
+        user_std=user_std,
     )
 
     if is_fraud_override is not None:

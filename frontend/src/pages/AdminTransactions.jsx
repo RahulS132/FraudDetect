@@ -13,8 +13,16 @@ const TAG_OPTIONS = [
   'Investment', 'Travel', 'Insurance', 'Other',
 ];
 
+const TYPE_OPTIONS = [
+  { value: 'purchase', label: 'Purchase (out)' },
+  { value: 'withdrawal', label: 'Withdrawal (out)' },
+  { value: 'deposit', label: 'Deposit (in)' },
+  { value: 'refund', label: 'Refund (in)' },
+];
+
 const emptyRow = () => ({
   amount: '',
+  txn_type: 'purchase',
   category: '',
   tag: '',
   description: '',
@@ -66,6 +74,7 @@ export const AdminTransactions = () => {
       }
       parsed.push({
         amount: String(amount),
+        txn_type: 'purchase',
         category: parts[1] || '',
         tag: TAG_OPTIONS.includes(parts[2]) ? parts[2] : '',
         description: parts[3] || '',
@@ -87,7 +96,7 @@ export const AdminTransactions = () => {
     for (const r of rows) {
       const amount = parseFloat(r.amount);
       if (isNaN(amount) || amount < 0) continue;
-      const tx = { amount };
+      const tx = { amount, txn_type: r.txn_type || 'purchase' };
       if (r.category) tx.category = r.category;
       if (r.tag) tx.tag = r.tag;
       if (r.description) tx.description = r.description;
@@ -185,6 +194,7 @@ export const AdminTransactions = () => {
             <div className="at-rows">
               <div className="at-row at-row-head">
                 <span>Amount ($)</span>
+                <span>Type</span>
                 <span>Category</span>
                 <span>Tag</span>
                 <span>Description</span>
@@ -197,6 +207,9 @@ export const AdminTransactions = () => {
                     type="number" min="0" step="0.01" placeholder="0.00"
                     value={r.amount} onChange={(e) => updateRow(idx, 'amount', e.target.value)}
                   />
+                  <select value={r.txn_type} onChange={(e) => updateRow(idx, 'txn_type', e.target.value)}>
+                    {TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
                   <input
                     type="text" placeholder="e.g. Groceries"
                     value={r.category} onChange={(e) => updateRow(idx, 'category', e.target.value)}
