@@ -74,7 +74,7 @@ pip install -r backend/requirements.txt
 # Node — pass the version explicitly so it works on both nvm (macOS/Linux)
 # and nvm-windows (which doesn't auto-read .nvmrc).
 cd frontend
-nvm install 20.18.0
+nvm install 22
 nvm use 22
 npm ci
 cd ..
